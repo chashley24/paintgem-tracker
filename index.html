@@ -783,7 +783,7 @@ function renderHome() {
           placeholder="Search kits..." style="margin-bottom:10px">
         <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">
           ${['all', 'in_progress', 'not_started', 'completed'].map(f => {
-            const labels = { all: 'All', in_progress: 'Active', not_started: 'New', completed: 'Done' };
+            const labels = { all: 'All', in_progress: 'Started', not_started: 'Not Started', completed: 'Done' };
             return `<button class="pill ${state.filter === f ? 'active' : ''}"
               onclick="state.filter='${f}';render()">${labels[f]}</button>`;
           }).join('')}
@@ -1032,7 +1032,7 @@ function renderDetail() {
     <div style="padding:0 24px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <h3 style="font-size:16px;font-weight:600;color:var(--text-bright)">Designs</h3>
-        <span style="font-size:13px;color:var(--text-dim)">Tap to complete · long press to rename</span>
+        <span style="font-size:13px;color:var(--text-dim)">Tap to complete · Press to rename</span>
       </div>`;
 
   designs.forEach((design, idx) => {
