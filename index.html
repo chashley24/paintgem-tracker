@@ -8,273 +8,75 @@
 <meta name="apple-mobile-web-app-title" content="PaintGem">
 <meta name="theme-color" content="#f8f7f4">
 <title>Paint Gem Tracker</title>
-
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  :root {
-    --bg: #f8f7f4;
-    --card: #ffffff;
-    --border: #e8e5df;
-    --border-light: #d4d0c8;
-    --text: #2d2a26;
-    --text-bright: #1a1816;
-    --text-dim: #7a756d;
-    --text-dimmer: #9e9890;
-    --purple: #7c3aed;
-    --purple-light: #8b5cf6;
-    --purple-glow: rgba(124, 58, 237, 0.2);
-    --pink: #a855f7;
-    --cyan: #0891b2;
-    --green: #16a34a;
-    --red: #dc2626;
-    --input-bg: #f0eee9;
-    --font-display: 'Playfair Display', serif;
-    --font-body: 'DM Sans', sans-serif;
-  }
-
-  body {
-    font-family: var(--font-body);
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    min-height: 100dvh;
-    -webkit-tap-highlight-color: transparent;
-    overscroll-behavior: none;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #c4c0b8; border-radius: 4px; }
-
-  input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-  input[type="number"] { -moz-appearance: textfield; }
-
-  /* Animations */
-  @keyframes sparkle-fall {
-    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-  }
-  @keyframes slide-up {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes gem-shimmer {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
-  }
-  @keyframes pulse-glow {
-    from { opacity: 0.85; }
-    to { opacity: 1; }
-  }
-  @keyframes check-pop {
-    0% { transform: scale(0); }
-    60% { transform: scale(1.3); }
-    100% { transform: scale(1); }
-  }
-  @keyframes toast-in {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  @keyframes toast-out {
-    from { transform: translateY(0); opacity: 1; }
-    to { transform: translateY(20px); opacity: 0; }
-  }
-
-  /* Base elements */
-  .screen { min-height: 100vh; min-height: 100dvh; background: var(--bg); }
-  .header { padding: 16px 20px; display: flex; align-items: center; gap: 12; }
-  .back-btn {
-    background: none; border: none; color: var(--purple-light);
-    font-size: 18px; cursor: pointer; padding: 8px 0;
-    font-family: var(--font-body);
-  }
-  .btn {
-    background: linear-gradient(135deg, var(--purple), #a855f7);
-    border: none; color: #fff; padding: 14px 28px; border-radius: 14px;
-    font-size: 16px; font-weight: 600; font-family: var(--font-body);
-    cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent;
-  }
-  .btn:active { transform: scale(0.97); }
-  .btn-outline {
-    background: transparent; border: 1px solid var(--border-light);
-    color: #94a3b8; padding: 12px 20px; border-radius: 14px;
-    font-size: 14px; font-weight: 600; font-family: var(--font-body);
-    cursor: pointer; transition: all 0.2s;
-  }
-  .btn-big {
-    padding: 18px 28px; font-size: 18px; border-radius: 16px;
-    box-shadow: 0 4px 20px var(--purple-glow);
-    width: 100%;
-  }
-  .btn-disabled {
-    background: var(--border-light) !important;
-    color: var(--text-dim) !important;
-    cursor: not-allowed !important;
-    box-shadow: none !important;
-  }
-
-  .input {
-    width: 100%; padding: 14px 16px; background: var(--input-bg);
-    border: 1px solid var(--border-light); border-radius: 12px;
-    color: var(--text); font-size: 16px; font-family: var(--font-body);
-    outline: none; transition: border-color 0.2s;
-  }
-  .input:focus { border-color: var(--purple-light); }
-  .input::placeholder { color: var(--text-dimmer); }
-
-  .label {
-    color: #94a3b8; font-size: 13px; font-weight: 600;
-    display: block; margin-bottom: 6px;
-  }
-
-  /* Sparkle overlay */
-  .sparkle {
-    position: fixed; border-radius: 50%; z-index: 9999; pointer-events: none;
-  }
-
-  /* Toast notification */
-  .toast {
-    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
-    background: #ffffff; border: 1px solid var(--border);
-    padding: 12px 24px; border-radius: 12px; font-size: 14px;
-    color: var(--text); z-index: 9998; white-space: nowrap;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-  }
-
-  /* Kit list item */
-  .kit-item {
-    width: 100%; background: var(--card);
-    border: 1px solid var(--border); border-radius: 14px;
-    padding: 14px 16px; margin-bottom: 8px;
-    display: flex; align-items: center; gap: 14;
-    cursor: pointer; text-align: left; font-family: var(--font-body);
-    transition: all 0.15s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  }
-  .kit-item:active { transform: scale(0.98); }
-  .kit-item.complete { border-color: rgba(22, 163, 74, 0.2); }
-
-  /* Design list item */
-  .design-item {
-    display: flex; align-items: center; gap: 12;
-    padding: 14px 16px; background: var(--card);
-    border: 1px solid var(--border); border-radius: 12px;
-    margin-bottom: 6px; cursor: pointer; transition: all 0.15s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  }
-  .design-item:active { transform: scale(0.98); }
-  .design-item.done { border-color: rgba(22, 163, 74, 0.15); }
-
-  .design-checkbox {
-    width: 28px; height: 28px; border-radius: 50%;
-    border: 2px solid var(--border-light); display: flex;
-    align-items: center; justify-content: center; flex-shrink: 0;
-    transition: all 0.2s;
-  }
-  .design-checkbox.checked {
-    background: var(--green); border-color: var(--green);
-    animation: check-pop 0.3s ease;
-  }
-
-  /* Filter pills */
-  .pill {
-    background: transparent; border: 1px solid var(--border);
-    color: var(--text-dim); padding: 6px 14px; border-radius: 20px;
-    font-size: 13px; font-weight: 600; cursor: pointer;
-    white-space: nowrap; font-family: var(--font-body); transition: all 0.15s;
-  }
-  .pill.active {
-    background: rgba(167, 139, 250, 0.15);
-    border-color: var(--purple-light);
-    color: var(--purple-light);
-  }
-
-  /* Stats cards */
-  .stat-card {
-    flex: 1; background: var(--card); border-radius: 12px;
-    padding: 12px 10px; text-align: center; border: 1px solid var(--border);
-  }
-
-  /* FAB */
-  .fab {
-    position: fixed; bottom: 24px; right: 24px;
-    width: 60px; height: 60px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--purple), #a855f7);
-    border: none; color: #fff; font-size: 28px; font-weight: 300;
-    cursor: pointer; box-shadow: 0 4px 24px rgba(124, 58, 237, 0.4);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 100;
-  }
-  .fab:active { transform: scale(0.93); }
-
-  /* Spinner area */
-  .spinner-box {
-    background: linear-gradient(135deg, rgba(124, 58, 237, 0.05), rgba(139, 92, 246, 0.03));
-    border: 1px solid rgba(124, 58, 237, 0.12);
-    border-radius: 20px; padding: 30px 20px; min-height: 100px; margin-bottom: 30px;
-  }
-
-  /* Progress bar */
-  .progress-bar {
-    height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
-  }
-  .progress-fill {
-    height: 100%; border-radius: 4px; transition: width 0.5s ease;
-  }
-
-  /* Rename input inline */
-  .rename-input {
-    background: var(--input-bg); border: 1px solid var(--purple-light);
-    border-radius: 8px; color: var(--text); font-size: 14px;
-    font-family: var(--font-body); padding: 6px 10px; outline: none;
-    width: 100%;
-  }
-
-  /* Status indicator */
-  .status-dot {
-    position: fixed; top: 12px; right: 16px; width: 8px; height: 8px;
-    border-radius: 50%; z-index: 200;
-  }
-
-  /* Hidden */
-  .hidden { display: none !important; }
-
-  /* Modal overlay */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.3);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 500; padding: 20px; animation: fade-in 0.2s ease;
-  }
-  .modal-content {
-    background: #ffffff; border: 1px solid var(--border);
-    border-radius: 20px; padding: 24px; width: 100%; max-width: 340px;
-    animation: slide-up 0.3s ease;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-  }
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f8f7f4;--card:#fff;--border:#e8e5df;--border-light:#d4d0c8;--text:#2d2a26;--text-bright:#1a1816;--text-dim:#7a756d;--text-dimmer:#9e9890;--purple:#7c3aed;--purple-light:#8b5cf6;--purple-glow:rgba(124,58,237,0.2);--cyan:#0891b2;--green:#16a34a;--red:#dc2626;--input-bg:#f0eee9;--fd:'Playfair Display',serif;--fb:'DM Sans',sans-serif}
+body{font-family:var(--fb);background:var(--bg);color:var(--text);min-height:100dvh;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#c4c0b8;border-radius:4px}
+input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none}input[type="number"]{-moz-appearance:textfield}
+@keyframes sparkle-fall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+@keyframes slide-up{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes gem-shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+@keyframes check-pop{0%{transform:scale(0)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
+@keyframes toast-in{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.screen{min-height:100dvh;background:var(--bg)}
+.header{padding:16px 20px;display:flex;align-items:center;gap:12px}
+.back-btn{background:none;border:none;color:var(--purple-light);font-size:18px;cursor:pointer;padding:8px 0;font-family:var(--fb)}
+.btn{background:linear-gradient(135deg,var(--purple),#a855f7);border:none;color:#fff;padding:14px 28px;border-radius:14px;font-size:16px;font-weight:600;font-family:var(--fb);cursor:pointer;transition:all 0.2s}
+.btn:active{transform:scale(0.97)}
+.btn-outline{background:transparent;border:1px solid var(--border-light);color:var(--text-dim);padding:12px 20px;border-radius:14px;font-size:14px;font-weight:600;font-family:var(--fb);cursor:pointer}
+.btn-big{padding:18px 28px;font-size:18px;border-radius:16px;box-shadow:0 4px 20px var(--purple-glow);width:100%}
+.btn-disabled{background:var(--border-light)!important;color:var(--text-dim)!important;cursor:not-allowed!important;box-shadow:none!important}
+.input{width:100%;padding:14px 16px;background:var(--input-bg);border:1px solid var(--border-light);border-radius:12px;color:var(--text);font-size:16px;font-family:var(--fb);outline:none}
+.input:focus{border-color:var(--purple-light)}.input::placeholder{color:var(--text-dimmer)}
+.textarea{width:100%;padding:12px 16px;background:var(--input-bg);border:1px solid var(--border-light);border-radius:12px;color:var(--text);font-size:14px;font-family:var(--fb);outline:none;resize:vertical;min-height:100px;line-height:1.6}
+.textarea:focus{border-color:var(--purple-light)}.textarea::placeholder{color:var(--text-dimmer)}
+.label{color:var(--text-dim);font-size:13px;font-weight:600;display:block;margin-bottom:6px}
+.sparkle{position:fixed;border-radius:50%;z-index:9999;pointer-events:none}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid var(--border);padding:12px 24px;border-radius:12px;font-size:14px;color:var(--text);z-index:9998;white-space:nowrap;box-shadow:0 8px 30px rgba(0,0,0,0.12)}
+.kit-item{width:100%;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:14px;cursor:pointer;text-align:left;font-family:var(--fb);box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.kit-item:active{transform:scale(0.98)}.kit-item.complete{border-color:rgba(22,163,74,0.2)}
+.design-item{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:6px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.design-item:active{transform:scale(0.98)}.design-item.done{border-color:rgba(22,163,74,0.15)}
+.design-checkbox{width:28px;height:28px;border-radius:50%;border:2px solid var(--border-light);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.design-checkbox.checked{background:var(--green);border-color:var(--green);animation:check-pop 0.3s ease}
+.pill{background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:var(--fb)}
+.pill.active{background:rgba(139,92,246,0.1);border-color:var(--purple-light);color:var(--purple-light)}
+.stat-card{flex:1;background:var(--card);border-radius:12px;padding:12px 10px;text-align:center;border:1px solid var(--border)}
+.fab{position:fixed;bottom:80px;right:24px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--purple),#a855f7);border:none;color:#fff;font-size:28px;cursor:pointer;box-shadow:0 4px 24px rgba(124,58,237,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
+.fab:active{transform:scale(0.93)}
+.spinner-box{background:linear-gradient(135deg,rgba(124,58,237,0.05),rgba(139,92,246,0.03));border:1px solid rgba(124,58,237,0.12);border-radius:20px;padding:30px 20px;min-height:100px;margin-bottom:30px}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:4px;transition:width 0.5s ease}
+.rename-input{background:var(--input-bg);border:1px solid var(--purple-light);border-radius:8px;color:var(--text);font-size:14px;font-family:var(--fb);padding:6px 10px;outline:none;width:100%}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:500;padding:20px;animation:fade-in 0.2s ease}
+.modal-content{background:#fff;border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:340px;animation:slide-up 0.3s ease;box-shadow:0 20px 60px rgba(0,0,0,0.15)}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin:0 24px 16px}
+.tab-btn{flex:1;padding:10px 4px;background:none;border:none;border-bottom:2px solid transparent;font-family:var(--fb);font-size:13px;font-weight:600;color:var(--text-dim);cursor:pointer}
+.tab-btn.active{color:var(--purple);border-bottom-color:var(--purple)}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.photo-thumb{aspect-ratio:1;border-radius:10px;overflow:hidden;cursor:pointer;border:1px solid var(--border);position:relative}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fade-in 0.2s ease;padding:20px}
+.photo-lightbox img{max-width:100%;max-height:70vh;border-radius:12px;object-fit:contain}
+.photo-add-btn{aspect-ratio:1;border-radius:10px;border:2px dashed var(--border-light);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--text-dim);font-size:11px;gap:4px;background:var(--input-bg);overflow:hidden;text-align:center;padding:4px}
+.photo-add-btn:active{transform:scale(0.95)}
+.history-item{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}.history-item:last-child{border-bottom:none}
+.history-dot{width:10px;height:10px;border-radius:50%;background:var(--purple-light);margin-top:5px;flex-shrink:0}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;padding:6px 0;padding-bottom:max(6px,env(safe-area-inset-bottom));z-index:100}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;padding:6px 4px;font-family:var(--fb);color:var(--text-dim);font-size:10px;font-weight:600}
+.nav-btn.active{color:var(--purple)}.nav-btn svg{width:22px;height:22px}
 </style>
 </head>
 <body>
-
 <div id="app"></div>
-
+<input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhotoSelected(this)">
 <script>
-// ══════════════════════════════════════════════════════════
-// FIREBASE CONFIG — Replace these values with your own!
-// ══════════════════════════════════════════════════════════
+// === REPLACE THESE WITH YOUR FIREBASE CONFIG ===
 const firebaseConfig = {
   apiKey: "AIzaSyCuPIasrn-pOYEkaQRQaJpvVeZfOhaVYJI",
   authDomain: "my-project-first-try-efd9b.firebaseapp.com",
@@ -286,925 +88,185 @@ const firebaseConfig = {
   measurementId: "G-T91MW46R8M"
 };
 
-// ══════════════════════════════════════════════════════════
-// Initialize Firebase
-// ══════════════════════════════════════════════════════════
-let db = null;
-let kitsCollection = null;
-let firebaseReady = false;
+let db,kitsCol,histCol,fbOk=false;
+try{firebase.initializeApp(firebaseConfig);db=firebase.firestore();db.enablePersistence({synchronizeTabs:false}).catch(()=>{});kitsCol=db.collection('kits');histCol=db.collection('pickHistory');fbOk=true}catch(e){console.error(e)}
 
-try {
-  firebase.initializeApp(firebaseConfig);
-  db = firebase.firestore();
+let S={kits:[],pickHistory:[],loaded:false,view:'home',selectedKitId:null,detailTab:'designs',filter:'all',search:'',spinning:false,pickerResult:null,bulkMode:false,editingDesignId:null,editingNotes:false,toast:null,toastTimer:null,lightboxPhoto:null,lightboxDesignName:'',lightboxDesignId:'',addNumber:'',addName:'',addTotal:'',addCompleted:'0',editNumber:'',editName:'',editTotal:'',showDeleteModal:false,deleteTargetId:null,photoTargetDesignId:null};
 
-  // Enable offline persistence
-  db.enablePersistence({ synchronizeTabs: false }).catch(err => {
-    console.warn('Persistence failed:', err.code);
-  });
+function selKit(){return S.kits.find(k=>k.id===S.selectedKitId)||null}
 
-  kitsCollection = db.collection('kits');
-  firebaseReady = true;
-} catch (e) {
-  console.error('Firebase init failed:', e);
+// === FIREBASE ===
+function loadData(){
+  if(!fbOk){S.loaded=true;render();return}
+  kitsCol.orderBy('number','asc').onSnapshot(s=>{S.kits=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded=true;render()});
+  histCol.orderBy('timestamp','desc').limit(100).onSnapshot(s=>{S.pickHistory=s.docs.map(d=>({id:d.id,...d.data()}));if(S.view==='history')render()});
 }
+async function fbAdd(d){if(fbOk)try{await kitsCol.add(d)}catch(e){showToast('Save failed')}}
+async function fbUp(id,d){if(fbOk)try{await kitsCol.doc(id).update(d)}catch(e){showToast('Save failed')}}
+async function fbDel(id){if(fbOk)try{await kitsCol.doc(id).delete()}catch(e){showToast('Delete failed')}}
+async function fbHist(kit){if(fbOk)try{await histCol.add({kitId:kit.id,kitNumber:kit.number,kitName:kit.name,timestamp:Date.now()})}catch(e){}}
 
-// ══════════════════════════════════════════════════════════
-// APP STATE
-// ══════════════════════════════════════════════════════════
-let state = {
-  kits: [],
-  loaded: false,
-  view: 'home', // home | add | edit | detail | picker
-  selectedKitId: null,
-  filter: 'all',
-  search: '',
-  spinning: false,
-  pickerResult: null,
-  bulkMode: false,
-  editingDesignId: null,
-  toast: null,
-  toastTimer: null,
-  // add form
-  addNumber: '',
-  addName: '',
-  addTotal: '',
-  addCompleted: '0',
-  // edit form
-  editNumber: '',
-  editName: '',
-  editTotal: '',
-  // modal
-  showDeleteModal: false,
-  deleteTargetId: null,
+// === HELPERS ===
+function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+function showToast(m){if(S.toastTimer)clearTimeout(S.toastTimer);S.toast=m;render();S.toastTimer=setTimeout(()=>{S.toast=null;render()},2500)}
+function mkDesigns(n,c=0){return Array.from({length:n},(_,i)=>({id:gid(),name:'',completed:i<c,photo:''}))}
+function ks(k){const c=k.designs?k.designs.filter(d=>d.completed).length:0,t=k.designs?k.designs.length:0,p=t>0?Math.round(c/t*100):0;return{c,t,p,done:c>=t&&t>0}}
+function overall(){let tk=S.kits.length,ck=0,ip=0,ns=0,td=0,cd=0;S.kits.forEach(k=>{const s=ks(k);td+=s.t;cd+=s.c;if(s.done)ck++;else if(s.c>0)ip++;else ns++});return{tk,ck,ip,ns,td,cd}}
+function filtered(){return S.kits.filter(k=>{const s=ks(k);if(S.filter==='ns')return s.c===0;if(S.filter==='ip')return s.c>0&&!s.done;if(S.filter==='done')return s.done;return true}).filter(k=>{if(!S.search)return true;const q=S.search.toLowerCase();return k.name.toLowerCase().includes(q)||String(k.number).includes(q)})}
+function E(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):''}
+function fmtDate(ts){const d=new Date(ts),mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],h=d.getHours(),m=d.getMinutes(),ap=h>=12?'PM':'AM';return`${mo[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${h%12||12}:${String(m).padStart(2,'0')} ${ap}`}
+function ring(c,t,sz=44){const p=t>0?c/t:0,r=(sz-6)/2,ci=2*Math.PI*r,o=ci*(1-p),co=p>=1?'var(--green)':p>0?'var(--purple-light)':'#d4d0c8',ch=p>=1?`<text x="${sz/2}" y="${sz/2+1}" text-anchor="middle" dominant-baseline="middle" fill="var(--green)" font-size="16">✓</text>`:'';return`<svg width="${sz}" height="${sz}" style="flex-shrink:0"><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="#e8e5df" stroke-width="4"/><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="${co}" stroke-width="4" stroke-dasharray="${ci}" stroke-dashoffset="${o}" stroke-linecap="round" transform="rotate(-90 ${sz/2} ${sz/2})" style="transition:stroke-dashoffset 0.5s ease"/>${ch}</svg>`}
+function sparkles(){const co=['#c084fc','#22d3ee','#f472b6','#facc15','#a78bfa','#34d399'];for(let i=0;i<30;i++){const el=document.createElement('div');el.className='sparkle';const sz=4+Math.random()*8;el.style.cssText=`left:${Math.random()*100}%;top:-10px;width:${sz}px;height:${sz}px;background:${co[Math.floor(Math.random()*co.length)]};animation:sparkle-fall ${1+Math.random()*1.5}s ease-in ${Math.random()*0.5}s forwards`;document.body.appendChild(el);setTimeout(()=>el.remove(),3000)}}
+
+// === PHOTOS ===
+function openPhotoPicker(did){S.photoTargetDesignId=did;document.getElementById('photo-input').click()}
+function handlePhotoSelected(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=function(e){const img=new Image();img.onload=function(){const c=document.createElement('canvas');const mx=800;let w=img.width,h=img.height;if(w>mx||h>mx){if(w>h){h=Math.round(h*mx/w);w=mx}else{w=Math.round(w*mx/h);h=mx}}c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);const k=selKit();if(!k||!S.photoTargetDesignId)return;const ds=k.designs.map(d=>d.id===S.photoTargetDesignId?{...d,photo:c.toDataURL('image/jpeg',0.7)}:d);fbUp(k.id,{designs:ds});S.photoTargetDesignId=null;showToast('Photo added!')};img.src=e.target.result};r.readAsDataURL(f);inp.value=''}
+function removePhoto(kid,did){const k=S.kits.find(x=>x.id===kid);if(!k)return;fbUp(kid,{designs:k.designs.map(d=>d.id===did?{...d,photo:''}:d)});S.lightboxPhoto=null;showToast('Photo removed');render()}
+
+// === SPINNER ===
+let spinInt=null;
+function startSpin(){const inc=S.kits.filter(k=>!ks(k).done);if(!inc.length)return;S.spinning=true;S.pickerResult=null;render();let tick=0;const tot=25+Math.floor(Math.random()*15),wi=Math.floor(Math.random()*inc.length);let spd=50;function go(){tick++;const el=document.getElementById('spinner-display');if(el){const k=inc[tick%inc.length];el.innerHTML=`<div style="color:var(--purple-light);font-size:16px;margin-bottom:4px">Kit #${k.number}</div><div style="font-family:var(--fd);font-size:22px;font-weight:700;color:var(--text-bright)">${E(k.name)}</div>`}if(tick>=tot){S.spinning=false;S.pickerResult=inc[wi];fbHist(inc[wi]);sparkles();render();return}if(tick>tot-10)spd=50+(tick-(tot-10))*40;spinInt=setTimeout(go,spd)}spinInt=setTimeout(go,spd)}
+
+// === ACTIONS ===
+function nav(v,kid){S.view=v;if(kid!==undefined)S.selectedKitId=kid;S.editingDesignId=null;S.editingNotes=false;if(v==='detail')S.detailTab='designs';render();window.scrollTo(0,0)}
+function switchTab(t){S.detailTab=t;S.editingDesignId=null;S.editingNotes=false;render()}
+function doAddKit(){const n=parseInt(S.addNumber),t=parseInt(S.addTotal),c=parseInt(S.addCompleted)||0;if(!n||!t)return;fbAdd({number:n,name:S.addName.trim()||`Kit #${n}`,designs:mkDesigns(t,Math.min(c,t)),notes:'',createdAt:Date.now()});showToast(`Kit #${n} added!`);if(S.bulkMode){S.addNumber=String(n+1);S.addName='';S.addTotal='';S.addCompleted='0';render();setTimeout(()=>{const el=document.getElementById('add-name-input');if(el)el.focus()},100)}else{S.addNumber='';S.addName='';S.addTotal='';S.addCompleted='0';nav('home')}}
+function doSaveEdit(){const k=selKit();if(!k)return;const n=parseInt(S.editNumber),nm=S.editName.trim()||`Kit #${n}`,nt=parseInt(S.editTotal);if(!n||!nt)return;let ds=[...(k.designs||[])];if(nt>ds.length)for(let i=ds.length;i<nt;i++)ds.push({id:gid(),name:'',completed:false,photo:''});else if(nt<ds.length){ds.sort((a,b)=>a.completed===b.completed?0:a.completed?-1:1);ds=ds.slice(0,nt)}fbUp(k.id,{number:n,name:nm,designs:ds});showToast('Updated!');nav('detail',k.id)}
+function doDelete(id){fbDel(id);S.showDeleteModal=false;S.deleteTargetId=null;showToast('Deleted');nav('home')}
+function toggleDes(kid,did){const k=S.kits.find(x=>x.id===kid);if(!k||!k.designs)return;const ds=k.designs.map(d=>d.id===did?{...d,completed:!d.completed}:d);const was=ks(k).done;fbUp(kid,{designs:ds});if(!was&&ds.filter(d=>d.completed).length===ds.length){setTimeout(sparkles,300);showToast('🎉 Kit complete!')}}
+function renameDes(kid,did,nm){const k=S.kits.find(x=>x.id===kid);if(!k)return;fbUp(kid,{designs:k.designs.map(d=>d.id===did?{...d,name:nm}:d)});S.editingDesignId=null;render()}
+function saveNotes(kid){const el=document.getElementById('notes-textarea');fbUp(kid,{notes:el?el.value:''});S.editingNotes=false;showToast('Notes saved!')}
+function openAdd(){S.addNumber=S.kits.length>0?String(Math.max(...S.kits.map(k=>k.number))+1):'1';S.addName='';S.addTotal='';S.addCompleted='0';nav('add')}
+function openEdit(){const k=selKit();if(!k)return;S.editNumber=String(k.number);S.editName=k.name;S.editTotal=String(k.designs?k.designs.length:0);nav('edit')}
+function updAddBtn(){const b=document.getElementById('add-kit-btn');if(!b)return;const ok=S.addNumber&&S.addTotal;b.classList.toggle('btn-disabled',!ok);b.disabled=!ok}
+function updEditBtn(){const b=document.getElementById('edit-save-btn');if(!b)return;const ok=S.editNumber&&S.editTotal;b.classList.toggle('btn-disabled',!ok);b.disabled=!ok}
+function updKitList(){const c=document.getElementById('kit-list-container');if(!c)return;c.innerHTML=renderKitItems()}
+function closeModal(){S.showDeleteModal=false;S.deleteTargetId=null;render()}
+
+// === NAV ICONS ===
+const IC={
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+  pick:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+  hist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  gal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'
 };
+function bnav(){return`<div class="bottom-nav">${[{k:'home',l:'Kits',i:IC.home},{k:'picker',l:'Pick',i:IC.pick},{k:'history',l:'History',i:IC.hist},{k:'gallery',l:'Gallery',i:IC.gal}].map(t=>`<button class="nav-btn ${S.view===t.k?'active':''}" onclick="nav('${t.k}')">${t.i}<span>${t.l}</span></button>`).join('')}</div>`}
 
-function getSelectedKit() {
-  return state.kits.find(k => k.id === state.selectedKitId) || null;
+// === SHARED RENDER HELPERS ===
+function renderKitItems(){
+  const fk=filtered();let h='';
+  if(!fk.length&&S.kits.length)return'<div style="text-align:center;padding:40px;color:var(--text-dimmer)">No kits match</div>';
+  fk.forEach(k=>{const s=ks(k);h+=`<div class="kit-item ${s.done?'complete':''}" onclick="nav('detail','${k.id}')">${ring(s.c,s.t,44)}<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:600;color:${s.done?'var(--green)':'var(--text-bright)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${k.number} — ${E(k.name)}</div><div style="font-size:13px;color:var(--text-dim);margin-top:2px">${s.c}/${s.t} · ${s.p}%</div></div><div style="color:#c4c0b8;font-size:18px">›</div></div>`});
+  return h;
 }
 
-// ══════════════════════════════════════════════════════════
-// FIREBASE DATA OPERATIONS
-// ══════════════════════════════════════════════════════════
-function loadKitsFromFirebase() {
-  if (!firebaseReady) {
-    state.loaded = true;
-    render();
-    return;
-  }
-
-  kitsCollection.orderBy('number', 'asc').onSnapshot(snapshot => {
-    state.kits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    state.loaded = true;
-    render();
-  }, err => {
-    console.error('Firestore listen error:', err);
-    state.loaded = true;
-    render();
-  });
-}
-
-async function addKitToFirebase(kitData) {
-  if (!firebaseReady) return;
-  try {
-    await kitsCollection.add(kitData);
-  } catch (e) {
-    console.error('Add failed:', e);
-    showToast('Failed to save — check connection');
-  }
-}
-
-async function updateKitInFirebase(id, updates) {
-  if (!firebaseReady) return;
-  try {
-    await kitsCollection.doc(id).update(updates);
-  } catch (e) {
-    console.error('Update failed:', e);
-    showToast('Failed to save — check connection');
-  }
-}
-
-async function deleteKitFromFirebase(id) {
-  if (!firebaseReady) return;
-  try {
-    await kitsCollection.doc(id).delete();
-  } catch (e) {
-    console.error('Delete failed:', e);
-    showToast('Failed to delete — check connection');
-  }
-}
-
-// ══════════════════════════════════════════════════════════
-// HELPERS
-// ══════════════════════════════════════════════════════════
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-function showToast(msg) {
-  if (state.toastTimer) clearTimeout(state.toastTimer);
-  state.toast = msg;
-  render();
-  state.toastTimer = setTimeout(() => {
-    state.toast = null;
-    render();
-  }, 2500);
-}
-
-function createDesigns(total, completed = 0) {
-  const designs = [];
-  for (let i = 0; i < total; i++) {
-    designs.push({
-      id: generateId(),
-      name: '',
-      completed: i < completed,
-    });
-  }
-  return designs;
-}
-
-function getKitStats(kit) {
-  const completed = kit.designs ? kit.designs.filter(d => d.completed).length : 0;
-  const total = kit.designs ? kit.designs.length : 0;
-  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-  return { completed, total, pct, isComplete: completed >= total && total > 0 };
-}
-
-function getOverallStats() {
-  let totalKits = state.kits.length;
-  let completedKits = 0, inProgressKits = 0, notStartedKits = 0;
-  let totalDesigns = 0, completedDesigns = 0;
-
-  state.kits.forEach(kit => {
-    const s = getKitStats(kit);
-    totalDesigns += s.total;
-    completedDesigns += s.completed;
-    if (s.isComplete) completedKits++;
-    else if (s.completed > 0) inProgressKits++;
-    else notStartedKits++;
-  });
-
-  return { totalKits, completedKits, inProgressKits, notStartedKits, totalDesigns, completedDesigns };
-}
-
-function getFilteredKits() {
-  return state.kits
-    .filter(k => {
-      const s = getKitStats(k);
-      if (state.filter === 'not_started') return s.completed === 0;
-      if (state.filter === 'in_progress') return s.completed > 0 && !s.isComplete;
-      if (state.filter === 'completed') return s.isComplete;
-      return true;
-    })
-    .filter(k => {
-      if (!state.search) return true;
-      const q = state.search.toLowerCase();
-      return k.name.toLowerCase().includes(q) || String(k.number).includes(q);
-    });
-}
-
-// ══════════════════════════════════════════════════════════
-// SVG HELPERS
-// ══════════════════════════════════════════════════════════
-function progressRingSvg(completed, total, size = 44) {
-  const pct = total > 0 ? completed / total : 0;
-  const r = (size - 6) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - pct);
-  const color = pct >= 1 ? 'var(--green)' : pct > 0 ? 'var(--purple-light)' : '#d4d0c8';
-  const checkmark = pct >= 1
-    ? `<text x="${size/2}" y="${size/2 + 1}" text-anchor="middle" dominant-baseline="middle" fill="var(--green)" font-size="16">✓</text>`
-    : '';
-
-  return `<svg width="${size}" height="${size}" style="flex-shrink:0">
-    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#e8e5df" stroke-width="4"/>
-    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="4"
-      stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round"
-      transform="rotate(-90 ${size/2} ${size/2})" style="transition:stroke-dashoffset 0.5s ease"/>
-    ${checkmark}
-  </svg>`;
-}
-
-// ══════════════════════════════════════════════════════════
-// SPARKLE EFFECT
-// ══════════════════════════════════════════════════════════
-function triggerSparkles() {
-  const colors = ['#c084fc', '#22d3ee', '#f472b6', '#facc15', '#a78bfa', '#34d399'];
-  for (let i = 0; i < 30; i++) {
-    const el = document.createElement('div');
-    el.className = 'sparkle';
-    const size = 4 + Math.random() * 8;
-    el.style.cssText = `
-      left: ${Math.random() * 100}%; top: -10px;
-      width: ${size}px; height: ${size}px;
-      background: ${colors[Math.floor(Math.random() * colors.length)]};
-      animation: sparkle-fall ${1 + Math.random() * 1.5}s ease-in ${Math.random() * 0.5}s forwards;
-    `;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
-  }
-}
-
-// ══════════════════════════════════════════════════════════
-// SPINNER LOGIC
-// ══════════════════════════════════════════════════════════
-let spinnerInterval = null;
-
-function startSpinner() {
-  const incomplete = state.kits.filter(k => !getKitStats(k).isComplete);
-  if (incomplete.length === 0) return;
-
-  state.spinning = true;
-  state.pickerResult = null;
-  render();
-
-  let tick = 0;
-  const totalTicks = 25 + Math.floor(Math.random() * 15);
-  const winnerIdx = Math.floor(Math.random() * incomplete.length);
-  let speed = 50;
-
-  function doTick() {
-    tick++;
-    const idx = tick % incomplete.length;
-    const displayEl = document.getElementById('spinner-display');
-    if (displayEl) {
-      const k = incomplete[idx];
-      displayEl.innerHTML = `
-        <div style="color:var(--purple-light);font-size:16px;margin-bottom:4px">Kit #${k.number}</div>
-        <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--text-bright)">${escHtml(k.name)}</div>
-      `;
-    }
-
-    if (tick >= totalTicks) {
-      state.spinning = false;
-      state.pickerResult = incomplete[winnerIdx];
-      triggerSparkles();
-      render();
-      return;
-    }
-
-    if (tick > totalTicks - 10) {
-      speed = 50 + (tick - (totalTicks - 10)) * 40;
-    }
-    spinnerInterval = setTimeout(doTick, speed);
-  }
-
-  spinnerInterval = setTimeout(doTick, speed);
-}
-
-// ══════════════════════════════════════════════════════════
-// ACTIONS
-// ══════════════════════════════════════════════════════════
-function navigateTo(view, kitId = null) {
-  state.view = view;
-  if (kitId !== null) state.selectedKitId = kitId;
-  state.editingDesignId = null;
-  render();
-  window.scrollTo(0, 0);
-}
-
-function handleAddKit() {
-  const num = parseInt(state.addNumber);
-  const total = parseInt(state.addTotal);
-  const completed = parseInt(state.addCompleted) || 0;
-  if (!num || !total) return;
-
-  const kitData = {
-    number: num,
-    name: state.addName.trim() || `Kit #${num}`,
-    designs: createDesigns(total, Math.min(completed, total)),
-    createdAt: Date.now(),
-  };
-
-  addKitToFirebase(kitData);
-  showToast(`Kit #${num} added!`);
-
-  if (state.bulkMode) {
-    state.addNumber = String(num + 1);
-    state.addName = '';
-    state.addTotal = '';
-    state.addCompleted = '0';
-    render();
-    // Focus kit name field for speed
-    setTimeout(() => {
-      const el = document.getElementById('add-name-input');
-      if (el) el.focus();
-    }, 100);
-  } else {
-    state.addNumber = '';
-    state.addName = '';
-    state.addTotal = '';
-    state.addCompleted = '0';
-    navigateTo('home');
-  }
-}
-
-function handleSaveEdit() {
-  const kit = getSelectedKit();
-  if (!kit) return;
-  const num = parseInt(state.editNumber);
-  const name = state.editName.trim() || `Kit #${num}`;
-  const newTotal = parseInt(state.editTotal);
-  if (!num || !newTotal) return;
-
-  let designs = [...(kit.designs || [])];
-  if (newTotal > designs.length) {
-    // Add new designs
-    for (let i = designs.length; i < newTotal; i++) {
-      designs.push({ id: generateId(), name: '', completed: false });
-    }
-  } else if (newTotal < designs.length) {
-    // Remove from end (uncompleted first)
-    designs.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? -1 : 1));
-    designs = designs.slice(0, newTotal);
-    // Re-sort by original order isn't possible, but this is a reasonable approach
-  }
-
-  updateKitInFirebase(kit.id, { number: num, name, designs });
-  showToast('Kit updated!');
-  navigateTo('detail', kit.id);
-}
-
-function handleDeleteKit(id) {
-  deleteKitFromFirebase(id);
-  state.showDeleteModal = false;
-  state.deleteTargetId = null;
-  showToast('Kit deleted');
-  navigateTo('home');
-}
-
-function toggleDesign(kitId, designId) {
-  const kit = state.kits.find(k => k.id === kitId);
-  if (!kit || !kit.designs) return;
-
-  const designs = kit.designs.map(d => {
-    if (d.id === designId) return { ...d, completed: !d.completed };
-    return d;
-  });
-
-  const wasComplete = getKitStats(kit).isComplete;
-  updateKitInFirebase(kitId, { designs });
-
-  // Check if kit just became complete
-  const newCompleted = designs.filter(d => d.completed).length;
-  if (!wasComplete && newCompleted === designs.length) {
-    setTimeout(triggerSparkles, 300);
-    showToast('🎉 Kit complete!');
-  }
-}
-
-function renameDesign(kitId, designId, newName) {
-  const kit = state.kits.find(k => k.id === kitId);
-  if (!kit || !kit.designs) return;
-
-  const designs = kit.designs.map(d => {
-    if (d.id === designId) return { ...d, name: newName };
-    return d;
-  });
-
-  updateKitInFirebase(kitId, { designs });
-  state.editingDesignId = null;
-  render();
-}
-
-// ══════════════════════════════════════════════════════════
-// ESCAPE HTML
-// ══════════════════════════════════════════════════════════
-function escHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// ══════════════════════════════════════════════════════════
-// RENDER
-// ══════════════════════════════════════════════════════════
-function render() {
-  const app = document.getElementById('app');
-  if (!app) return;
-
-  if (!state.loaded) {
-    app.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;height:100vh;height:100dvh">
-        <div style="color:var(--purple);font-size:18px">Loading...</div>
-      </div>`;
-    return;
-  }
-
-  let html = '';
-
-  switch (state.view) {
-    case 'home': html = renderHome(); break;
-    case 'add': html = renderAdd(); break;
-    case 'detail': html = renderDetail(); break;
-    case 'edit': html = renderEdit(); break;
-    case 'picker': html = renderPicker(); break;
-  }
-
+// === MAIN RENDER ===
+function render(){
+  const app=document.getElementById('app');if(!app)return;
+  if(!S.loaded){app.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100dvh"><div style="color:var(--purple);font-size:18px">Loading...</div></div>';return}
+  let h='';
+  switch(S.view){case'home':h=rHome();break;case'add':h=rAdd();break;case'detail':h=rDetail();break;case'edit':h=rEdit();break;case'picker':h=rPicker();break;case'history':h=rHistory();break;case'gallery':h=rGallery();break}
   // Toast
-  if (state.toast) {
-    html += `<div class="toast" style="animation:toast-in 0.3s ease">${escHtml(state.toast)}</div>`;
-  }
-
+  if(S.toast)h+=`<div class="toast" style="animation:toast-in 0.3s ease">${E(S.toast)}</div>`;
   // Delete modal
-  if (state.showDeleteModal) {
-    const dk = state.kits.find(k => k.id === state.deleteTargetId);
-    html += `
-      <div class="modal-overlay" onclick="closeDeleteModal(event)">
-        <div class="modal-content" onclick="event.stopPropagation()">
-          <h3 style="font-family:var(--font-display);font-size:20px;color:var(--text-bright);margin-bottom:12px">Delete Kit?</h3>
-          <p style="color:var(--text-dim);font-size:14px;margin-bottom:20px;line-height:1.5">
-            Are you sure you want to delete <strong style="color:var(--text)">#${dk ? dk.number : ''} — ${dk ? escHtml(dk.name) : ''}</strong>? This can't be undone.
-          </p>
-          <div style="display:flex;gap:10px">
-            <button class="btn-outline" style="flex:1;border-radius:12px" onclick="closeDeleteModal()">Cancel</button>
-            <button class="btn" style="flex:1;background:var(--red);border-radius:12px" onclick="handleDeleteKit('${state.deleteTargetId}')">Delete</button>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  app.innerHTML = html;
+  if(S.showDeleteModal){const dk=S.kits.find(k=>k.id===S.deleteTargetId);h+=`<div class="modal-overlay" onclick="closeModal()"><div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-family:var(--fd);font-size:20px;color:var(--text-bright);margin-bottom:12px">Delete Kit?</h3><p style="color:var(--text-dim);font-size:14px;margin-bottom:20px;line-height:1.5">Delete <strong>#${dk?dk.number:''} — ${dk?E(dk.name):''}</strong>?</p><div style="display:flex;gap:10px"><button class="btn-outline" style="flex:1;border-radius:12px" onclick="closeModal()">Cancel</button><button class="btn" style="flex:1;background:var(--red);border-radius:12px" onclick="doDelete('${S.deleteTargetId}')">Delete</button></div></div></div>`}
+  // Lightbox
+  if(S.lightboxPhoto){const k=S.kits.find(x=>x.id===S.selectedKitId);const d=k&&k.designs?k.designs.find(x=>x.id===S.lightboxDesignId):null;if(d&&d.photo){h+=`<div class="photo-lightbox" onclick="S.lightboxPhoto=null;render()"><img src="${d.photo}" onclick="event.stopPropagation()"><div style="color:#fff;margin-top:12px;font-size:16px;font-weight:600">${E(S.lightboxDesignName)}</div><button style="margin-top:12px;background:rgba(255,255,255,0.15);border:none;color:#fff;padding:10px 24px;border-radius:10px;font-size:14px;cursor:pointer;font-family:var(--fb)" onclick="event.stopPropagation();removePhoto('${S.selectedKitId}','${S.lightboxDesignId}')">Remove Photo</button></div>`}else{S.lightboxPhoto=null}}
+  app.innerHTML=h;
 }
 
-function closeDeleteModal(e) {
-  state.showDeleteModal = false;
-  state.deleteTargetId = null;
-  render();
+// === HOME ===
+function rHome(){
+  const st=overall(),fk=filtered();
+  let h=`<div class="screen" style="padding-bottom:80px"><div style="padding:24px 20px 20px;background:linear-gradient(180deg,rgba(124,58,237,0.06),transparent)"><h1 style="font-family:var(--fd);font-size:26px;font-weight:700;background:linear-gradient(90deg,var(--purple),var(--cyan),var(--purple));background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gem-shimmer 4s linear infinite;margin-bottom:4px">◆ Paint Gem Tracker</h1><p style="color:var(--text-dimmer);font-size:14px">${st.tk===0?'Add your first kit!':st.tk+' kits · '+st.cd+' of '+st.td+' designs done'}</p></div>`;
+  if(st.tk>0)h+=`<div style="padding:0 20px 16px;display:flex;gap:8px"><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--green)">${st.ck}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">Done</div></div><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--purple-light)">${st.ip}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">Active</div></div><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--text-dimmer)">${st.ns}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">New</div></div></div>`;
+  if(st.tk>0)h+=`<div style="padding:0 20px 12px"><input class="input" id="search-input" value="${E(S.search)}" oninput="S.search=this.value;updKitList()" placeholder="Search kits..." style="margin-bottom:10px"><div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">${[['all','All'],['ip','Active'],['ns','New'],['done','Done']].map(([f,l])=>`<button class="pill ${S.filter===f?'active':''}" onclick="S.filter='${f}';render()">${l}</button>`).join('')}</div></div>`;
+  h+=`<div id="kit-list-container" style="padding:0 20px">${renderKitItems()}</div>`;
+  h+=`<button class="fab" onclick="openAdd()">+</button>${bnav()}</div>`;
+  return h;
 }
 
-// ── HOME VIEW ──
-function renderHome() {
-  const stats = getOverallStats();
-  const filtered = getFilteredKits();
-  const hasIncomplete = state.kits.some(k => !getKitStats(k).isComplete);
+// === ADD ===
+function rAdd(){
+  const ok=S.addNumber&&S.addTotal;
+  let h=`<div class="screen" style="padding-bottom:40px"><div class="header"><button class="back-btn" onclick="S.bulkMode=false;nav('home')">← Back</button></div><div style="padding:10px 24px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px"><h2 style="font-family:var(--fd);font-size:24px;color:var(--text-bright)">${S.bulkMode?'Quick Add':'Add Kit'}</h2><button class="pill ${S.bulkMode?'active':''}" onclick="S.bulkMode=!S.bulkMode;render()">${S.bulkMode?'Bulk ✓':'Bulk'}</button></div>`;
+  if(S.bulkMode)h+=`<div style="padding:12px 16px;background:rgba(124,58,237,0.05);border-radius:12px;border:1px solid rgba(124,58,237,0.1);margin-bottom:20px;font-size:13px;color:var(--text-dim);line-height:1.5">Form stays open with next number ready.</div>`;
+  h+=`<div style="display:flex;flex-direction:column;gap:16px"><div><label class="label">Kit Number *</label><input class="input" type="number" value="${E(S.addNumber)}" oninput="S.addNumber=this.value;updAddBtn()" placeholder="e.g. 1"></div><div><label class="label">Kit Name</label><input class="input" id="add-name-input" value="${E(S.addName)}" oninput="S.addName=this.value" placeholder="e.g. Ocean Sunset"></div><div><label class="label">Total Designs *</label><input class="input" type="number" value="${E(S.addTotal)}" oninput="S.addTotal=this.value;updAddBtn()" placeholder="e.g. 12"></div><div><label class="label">Already Completed</label><input class="input" type="number" value="${E(S.addCompleted)}" oninput="S.addCompleted=this.value" placeholder="0"></div><button id="add-kit-btn" class="btn ${!ok?'btn-disabled':''}" style="margin-top:8px" onclick="doAddKit()" ${!ok?'disabled':''}>${S.bulkMode?'Add & Next':'Add Kit'}</button>${S.bulkMode?'<button class="btn-outline" onclick="S.bulkMode=false;nav(\'home\')">Done</button>':''}</div></div></div>`;
+  return h;
+}
 
-  let html = `<div class="screen" style="padding-bottom:100px">`;
-
+// === DETAIL ===
+function rDetail(){
+  const k=selKit();if(!k){nav('home');return''}
+  const s=ks(k),ds=k.designs||[];
+  let h=`<div class="screen" style="padding-bottom:40px"><div class="header"><button class="back-btn" onclick="nav('home')">← Back</button><div style="flex:1"></div><button style="background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;padding:8px;font-family:var(--fb)" onclick="openEdit()">Edit</button><button style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:8px;font-family:var(--fb)" onclick="S.showDeleteModal=true;S.deleteTargetId='${k.id}';render()">Delete</button></div>`;
   // Header
-  html += `
-    <div style="padding:24px 20px 20px;background:linear-gradient(180deg,rgba(124,58,237,0.06),transparent)">
-      <h1 style="font-family:var(--font-display);font-size:26px;font-weight:700;
-        background:linear-gradient(90deg,var(--purple),var(--cyan),var(--purple));
-        background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
-        animation:gem-shimmer 4s linear infinite;margin-bottom:4px">
-        ◆ Paint Gem Tracker
-      </h1>
-      <p style="color:var(--text-dimmer);font-size:14px">
-        ${stats.totalKits === 0
-          ? 'Add your first kit to get started!'
-          : `${stats.totalKits} kits · ${stats.completedDesigns} of ${stats.totalDesigns} designs done`}
-      </p>
-    </div>`;
-
-  // Stats
-  if (stats.totalKits > 0) {
-    html += `
-      <div style="padding:0 20px 16px;display:flex;gap:8px">
-        <div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--green)">${stats.completedKits}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.5px">Done</div></div>
-        <div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--purple-light)">${stats.inProgressKits}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.5px">Active</div></div>
-        <div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--text-dimmer)">${stats.notStartedKits}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.5px">New</div></div>
-      </div>`;
+  h+=`<div style="text-align:center;padding:20px 24px 20px"><div style="color:var(--purple-light);font-size:14px;font-weight:600;letter-spacing:1px;margin-bottom:6px">KIT #${k.number}</div><h1 style="font-family:var(--fd);font-size:26px;font-weight:700;color:${s.done?'var(--green)':'var(--text-bright)'};margin-bottom:16px">${E(k.name)}${s.done?' ✨':''}</h1><div style="display:flex;justify-content:center;margin-bottom:12px">${ring(s.c,s.t,90)}</div><div style="font-size:24px;font-weight:700;color:var(--text-bright)">${s.c} <span style="color:var(--text-dimmer);font-size:16px">of</span> ${s.t}</div><div style="color:var(--text-dim);font-size:13px;margin-top:2px">${s.p}% complete</div><div class="progress-bar" style="margin:14px auto 0;max-width:240px"><div class="progress-fill" style="width:${s.p}%;background:${s.done?'linear-gradient(90deg,var(--green),var(--cyan))':'linear-gradient(90deg,var(--purple),var(--purple-light))'}"></div></div></div>`;
+  if(s.done)h+=`<div style="margin:0 24px 12px;text-align:center;padding:14px;background:linear-gradient(135deg,rgba(22,163,74,0.08),rgba(8,145,178,0.05));border-radius:14px;border:1px solid rgba(22,163,74,0.15)"><span style="font-size:20px">🎉</span> <span style="color:var(--green);font-weight:600">Kit Complete!</span></div>`;
+  // Tabs
+  const photoCount=ds.filter(d=>d.photo).length;
+  h+=`<div class="tab-bar"><button class="tab-btn ${S.detailTab==='designs'?'active':''}" onclick="switchTab('designs')">Designs</button><button class="tab-btn ${S.detailTab==='photos'?'active':''}" onclick="switchTab('photos')">Photos${photoCount?' ('+photoCount+')':''}</button><button class="tab-btn ${S.detailTab==='notes'?'active':''}" onclick="switchTab('notes')">Notes${k.notes?' ●':''}</button></div>`;
+  // DESIGNS TAB
+  if(S.detailTab==='designs'){
+    h+=`<div style="padding:0 24px">`;
+    ds.forEach((d,i)=>{const dn=d.name||`Design #${i+1}`;
+      if(S.editingDesignId===d.id){h+=`<div class="design-item" style="gap:8px"><input class="rename-input" id="rename-${d.id}" value="${E(d.name)}" placeholder="Design #${i+1}" onkeydown="if(event.key==='Enter')renameDes('${k.id}','${d.id}',this.value)" onblur="renameDes('${k.id}','${d.id}',this.value)"><button style="background:none;border:none;color:var(--purple-light);font-size:13px;cursor:pointer;font-family:var(--fb)" onclick="renameDes('${k.id}','${d.id}',document.getElementById('rename-${d.id}').value)">Save</button></div>`}
+      else{h+=`<div class="design-item ${d.completed?'done':''}" onclick="toggleDes('${k.id}','${d.id}')"><div class="design-checkbox ${d.completed?'checked':''}">${d.completed?'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L5.5 10.5L12 3.5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div><div style="flex:1;min-width:0"><div style="font-size:15px;color:${d.completed?'var(--green)':'var(--text)'};${d.completed?'text-decoration:line-through;opacity:0.7':''};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${E(dn)}</div>${d.photo?'<div style="font-size:11px;color:var(--purple-light);margin-top:1px">📷 photo</div>':''}</div><button style="background:none;border:none;color:var(--text-dimmer);font-size:11px;cursor:pointer;padding:4px 8px;font-family:var(--fb)" onclick="event.stopPropagation();S.editingDesignId='${d.id}';render();setTimeout(()=>{const el=document.getElementById('rename-${d.id}');if(el)el.focus()},50)">rename</button></div>`}
+    });h+=`</div>`;
   }
-
-  // Pick button
-  if (stats.totalKits > 0 && hasIncomplete) {
-    html += `
-      <div style="padding:0 20px 16px">
-        <button class="btn btn-big" onclick="navigateTo('picker')" style="display:flex;align-items:center;justify-content:center;gap:8px">
-          <span style="font-size:20px">◆</span> Pick Next Kit
-        </button>
-      </div>`;
+  // PHOTOS TAB
+  if(S.detailTab==='photos'){
+    h+=`<div style="padding:0 24px"><div class="photo-grid">`;
+    ds.forEach((d,i)=>{const dn=d.name||`Design #${i+1}`;
+      if(d.photo){h+=`<div class="photo-thumb" onclick="S.lightboxPhoto=true;S.lightboxDesignName='${E(dn)}';S.lightboxDesignId='${d.id}';render()"><img src="${d.photo}" loading="lazy"><div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));color:#fff;font-size:10px;font-weight:600">${E(dn)}</div></div>`}
+      else{h+=`<div class="photo-add-btn" onclick="openPhotoPicker('${d.id}')"><span style="font-size:18px">📷</span><span>${E(dn)}</span></div>`}
+    });h+=`</div></div>`;
   }
-
-  // Search & Filter
-  if (stats.totalKits > 0) {
-    html += `
-      <div style="padding:0 20px 12px">
-        <input class="input" id="search-input" value="${escHtml(state.search)}" oninput="state.search=this.value;updateKitList()"
-          placeholder="Search kits..." style="margin-bottom:10px">
-        <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">
-          ${['all', 'in_progress', 'not_started', 'completed'].map(f => {
-            const labels = { all: 'All', in_progress: 'Started', not_started: 'Not Started', completed: 'Done' };
-            return `<button class="pill ${state.filter === f ? 'active' : ''}"
-              onclick="state.filter='${f}';render()">${labels[f]}</button>`;
-          }).join('')}
-        </div>
-      </div>`;
+  // NOTES TAB
+  if(S.detailTab==='notes'){const nt=k.notes||'';
+    if(S.editingNotes){h+=`<div style="padding:0 24px"><textarea class="textarea" id="notes-textarea" placeholder="Add notes... e.g. 'Small pieces' or 'Missing bag #3'">${E(nt)}</textarea><div style="display:flex;gap:8px;margin-top:12px"><button class="btn" style="flex:1;padding:12px" onclick="saveNotes('${k.id}')">Save Notes</button><button class="btn-outline" style="padding:12px 20px" onclick="S.editingNotes=false;render()">Cancel</button></div></div>`}
+    else{h+=`<div style="padding:0 24px">`;
+      if(nt){h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;font-size:14px;line-height:1.6;white-space:pre-wrap;box-shadow:0 1px 3px rgba(0,0,0,0.04)">${E(nt)}</div><button class="btn-outline" style="margin-top:12px;width:100%" onclick="S.editingNotes=true;render();setTimeout(()=>{const el=document.getElementById('notes-textarea');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}},50)">Edit Notes</button>`}
+      else{h+=`<div style="text-align:center;padding:30px 20px;color:var(--text-dimmer)"><div style="font-size:28px;margin-bottom:8px">📝</div><div style="font-size:14px;margin-bottom:16px">No notes yet</div><button class="btn-outline" onclick="S.editingNotes=true;render();setTimeout(()=>{const el=document.getElementById('notes-textarea');if(el)el.focus()},50)">Add Notes</button></div>`}
+      h+=`</div>`}
   }
-
-  // Kit list
-  html += `<div id="kit-list-container" style="padding:0 20px">`;
-  if (filtered.length === 0 && stats.totalKits > 0) {
-    html += `<div style="text-align:center;padding:40px;color:var(--text-dimmer)">No kits match this filter</div>`;
-  }
-
-  filtered.forEach(kit => {
-    const s = getKitStats(kit);
-    html += `
-      <div class="kit-item ${s.isComplete ? 'complete' : ''}" onclick="navigateTo('detail','${kit.id}')">
-        ${progressRingSvg(s.completed, s.total, 44)}
-        <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:600;color:${s.isComplete ? 'var(--green)' : 'var(--text-bright)'};
-            overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-            #${kit.number} — ${escHtml(kit.name)}
-          </div>
-          <div style="font-size:13px;color:var(--text-dim);margin-top:2px">
-            ${s.completed}/${s.total} designs · ${s.pct}%
-          </div>
-        </div>
-        <div style="color:#c4c0b8;font-size:18px">›</div>
-      </div>`;
-  });
-
-  html += `</div>`;
-
-  // FAB
-  html += `
-    <button class="fab" onclick="openAddKit()">+</button>`;
-
-  html += `</div>`;
-  return html;
+  h+=`</div>`;return h;
 }
 
-function openAddKit() {
-  if (state.kits.length > 0) {
-    const maxNum = Math.max(...state.kits.map(k => k.number));
-    state.addNumber = String(maxNum + 1);
-  } else {
-    state.addNumber = '1';
-  }
-  state.addName = '';
-  state.addTotal = '';
-  state.addCompleted = '0';
-  navigateTo('add');
+// === EDIT ===
+function rEdit(){
+  const k=selKit();if(!k){nav('home');return''}const ok=S.editNumber&&S.editTotal;
+  return`<div class="screen" style="padding-bottom:40px"><div class="header"><button class="back-btn" onclick="nav('detail','${k.id}')">← Cancel</button></div><div style="padding:10px 24px"><h2 style="font-family:var(--fd);font-size:24px;color:var(--text-bright);margin-bottom:24px">Edit Kit</h2><div style="display:flex;flex-direction:column;gap:16px"><div><label class="label">Kit Number</label><input class="input" type="number" value="${E(S.editNumber)}" oninput="S.editNumber=this.value;updEditBtn()"></div><div><label class="label">Kit Name</label><input class="input" value="${E(S.editName)}" oninput="S.editName=this.value"></div><div><label class="label">Total Designs</label><input class="input" type="number" value="${E(S.editTotal)}" oninput="S.editTotal=this.value;updEditBtn()"><div style="font-size:12px;color:var(--text-dimmer);margin-top:6px">Changing this adds/removes designs from end</div></div><button id="edit-save-btn" class="btn ${!ok?'btn-disabled':''}" style="margin-top:8px" onclick="doSaveEdit()" ${!ok?'disabled':''}>Save Changes</button></div></div></div>`;
 }
 
-function updateAddBtn() {
-  const btn = document.getElementById('add-kit-btn');
-  if (!btn) return;
-  const canAdd = state.addNumber && state.addTotal;
-  if (canAdd) {
-    btn.classList.remove('btn-disabled');
-    btn.disabled = false;
-  } else {
-    btn.classList.add('btn-disabled');
-    btn.disabled = true;
-  }
+// === PICKER ===
+function rPicker(){
+  const ic=S.kits.filter(k=>!ks(k).done).length,r=S.pickerResult;
+  let h=`<div class="screen" style="padding-bottom:80px"><div style="text-align:center;padding:40px 24px 24px"><h2 style="font-family:var(--fd);font-size:28px;font-weight:700;color:var(--text-bright);margin-bottom:8px">◆ Pick Next Kit</h2><p style="color:var(--text-dim);font-size:14px;margin-bottom:40px">${ic} kit${ic!==1?'s':''} remaining</p><div class="spinner-box">${!S.spinning&&!r?'<div style="color:var(--text-dimmer);font-size:16px">Tap to pick a kit!</div>':''}<div id="spinner-display" style="padding:${S.spinning?'20px':'0'}"></div></div>`;
+  if(r&&!S.spinning){const rs=ks(r);h+=`<div style="animation:slide-up 0.4s ease;margin-bottom:24px"><div style="background:linear-gradient(135deg,rgba(124,58,237,0.06),rgba(8,145,178,0.04));border:1px solid rgba(124,58,237,0.15);border-radius:16px;padding:24px;margin-bottom:16px"><div style="font-size:14px;color:var(--purple-light);font-weight:600;margin-bottom:4px">YOUR NEXT KIT</div><div style="font-family:var(--fd);font-size:24px;font-weight:700;color:var(--text-bright);margin-bottom:8px">#${r.number} — ${E(r.name)}</div><div style="color:var(--text-dim);font-size:14px">${rs.c} of ${rs.t} designs done</div></div><div style="display:flex;gap:12px"><button class="btn" style="flex:1;box-shadow:0 4px 20px var(--purple-glow)" onclick="nav('detail','${r.id}');S.pickerResult=null">Let's Go! →</button><button class="btn-outline" style="padding:14px 20px" onclick="S.pickerResult=null;startSpin()">Re-roll</button></div></div>`}
+  if(!r)h+=`<button class="btn btn-big ${S.spinning||ic===0?'btn-disabled':''}" style="max-width:300px;margin:0 auto" onclick="startSpin()" ${S.spinning||ic===0?'disabled':''}>${S.spinning?'Picking...':ic===0?'All Complete! 🎉':'◆ Spin!'}</button>`;
+  h+=`</div>${bnav()}</div>`;return h;
 }
 
-function updateEditBtn() {
-  const btn = document.getElementById('edit-save-btn');
-  if (!btn) return;
-  const canSave = state.editNumber && state.editTotal;
-  if (canSave) {
-    btn.classList.remove('btn-disabled');
-    btn.disabled = false;
-  } else {
-    btn.classList.add('btn-disabled');
-    btn.disabled = true;
-  }
+// === HISTORY ===
+function rHistory(){
+  let h=`<div class="screen" style="padding-bottom:80px"><div style="padding:24px 20px 20px"><h2 style="font-family:var(--fd);font-size:24px;font-weight:700;color:var(--text-bright)">Pick History</h2><p style="color:var(--text-dim);font-size:14px;margin-top:4px">Every kit the spinner has chosen</p></div><div style="padding:0 24px">`;
+  if(!S.pickHistory.length){h+=`<div style="text-align:center;padding:40px;color:var(--text-dimmer)"><div style="font-size:28px;margin-bottom:8px">🎰</div><div style="font-size:14px">No picks yet! Use the spinner.</div></div>`}
+  else{S.pickHistory.forEach(p=>{const k=S.kits.find(x=>x.id===p.kitId),s=k?ks(k):null;h+=`<div class="history-item"${k?` onclick="nav('detail','${k.id}')" style="cursor:pointer"`:''}><div class="history-dot"></div><div style="flex:1"><div style="font-size:15px;font-weight:600;color:var(--text-bright)">#${p.kitNumber} — ${E(p.kitName)}</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px">${fmtDate(p.timestamp)}</div>${s?`<div style="font-size:12px;color:var(--text-dimmer);margin-top:2px">${s.c}/${s.t} · ${s.p}%</div>`:'<div style="font-size:12px;color:var(--red);margin-top:2px">Kit deleted</div>'}</div>${k?'<div style="color:#c4c0b8;font-size:18px">›</div>':''}</div>`})}
+  h+=`</div>${bnav()}</div>`;return h;
 }
 
-function updateKitList() {
-  const container = document.getElementById('kit-list-container');
-  if (!container) return;
-
-  const filtered = getFilteredKits();
-  let html = '';
-
-  if (filtered.length === 0 && state.kits.length > 0) {
-    html = '<div style="text-align:center;padding:40px;color:var(--text-dimmer)">No kits match this filter</div>';
-  }
-
-  filtered.forEach(kit => {
-    const s = getKitStats(kit);
-    html += `
-      <div class="kit-item ${s.isComplete ? 'complete' : ''}" onclick="navigateTo('detail','${kit.id}')">
-        ${progressRingSvg(s.completed, s.total, 44)}
-        <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:600;color:${s.isComplete ? 'var(--green)' : 'var(--text-bright)'};
-            overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-            #${kit.number} — ${escHtml(kit.name)}
-          </div>
-          <div style="font-size:13px;color:var(--text-dim);margin-top:2px">
-            ${s.completed}/${s.total} designs · ${s.pct}%
-          </div>
-        </div>
-        <div style="color:#c4c0b8;font-size:18px">›</div>
-      </div>`;
-  });
-
-  container.innerHTML = html;
+// === GALLERY ===
+function rGallery(){
+  const photos=[];S.kits.forEach(k=>{if(!k.designs)return;k.designs.forEach((d,i)=>{if(d.photo)photos.push({photo:d.photo,dn:d.name||`Design #${i+1}`,kn:k.name,knum:k.number,kid:k.id,did:d.id})})});
+  let h=`<div class="screen" style="padding-bottom:80px"><div style="padding:24px 20px 20px"><h2 style="font-family:var(--fd);font-size:24px;font-weight:700;color:var(--text-bright)">Photo Gallery</h2><p style="color:var(--text-dim);font-size:14px;margin-top:4px">${photos.length} photo${photos.length!==1?'s':''} across all kits</p></div><div style="padding:0 20px">`;
+  if(!photos.length){h+=`<div style="text-align:center;padding:40px;color:var(--text-dimmer)"><div style="font-size:28px;margin-bottom:8px">📷</div><div style="font-size:14px;margin-bottom:4px">No photos yet!</div><div style="font-size:13px">Open a kit → Photos tab to add some.</div></div>`}
+  else{h+=`<div class="photo-grid">`;photos.forEach(p=>{h+=`<div class="photo-thumb" onclick="S.lightboxPhoto=true;S.lightboxDesignName='${E(p.dn)} · Kit #${p.knum}';S.lightboxDesignId='${p.did}';S.selectedKitId='${p.kid}';render()"><img src="${p.photo}" loading="lazy"><div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));color:#fff;font-size:9px;font-weight:600">#${p.knum} · ${E(p.dn)}</div></div>`});h+=`</div>`}
+  h+=`</div>${bnav()}</div>`;return h;
 }
 
-// ── ADD VIEW ──
-function renderAdd() {
-  const canAdd = state.addNumber && state.addTotal;
-  let html = `<div class="screen" style="padding-bottom:40px">`;
-
-  html += `
-    <div class="header">
-      <button class="back-btn" onclick="state.bulkMode=false;navigateTo('home')">← Back</button>
-    </div>
-    <div style="padding:10px 24px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-        <h2 style="font-family:var(--font-display);font-size:24px;color:var(--text-bright)">
-          ${state.bulkMode ? 'Quick Add Kits' : 'Add Kit'}
-        </h2>
-        <button class="pill ${state.bulkMode ? 'active' : ''}"
-          onclick="state.bulkMode=!state.bulkMode;render()">
-          ${state.bulkMode ? 'Bulk Mode ✓' : 'Bulk Mode'}
-        </button>
-      </div>`;
-
-  if (state.bulkMode) {
-    html += `
-      <div style="padding:12px 16px;background:rgba(124,58,237,0.05);border-radius:12px;
-        border:1px solid rgba(124,58,237,0.1);margin-bottom:20px;font-size:13px;
-        color:var(--text-dim);line-height:1.5">
-        Quick add mode — after adding a kit, the form stays open with the next number ready.
-      </div>`;
-  }
-
-  html += `
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <div>
-        <label class="label">Kit Number *</label>
-        <input class="input" type="number" value="${escHtml(state.addNumber)}"
-          oninput="state.addNumber=this.value;updateAddBtn()" placeholder="e.g. 1">
-      </div>
-      <div>
-        <label class="label">Kit Name</label>
-        <input class="input" id="add-name-input" value="${escHtml(state.addName)}"
-          oninput="state.addName=this.value" placeholder="e.g. Ocean Sunset">
-      </div>
-      <div>
-        <label class="label">Total Designs *</label>
-        <input class="input" type="number" value="${escHtml(state.addTotal)}"
-          oninput="state.addTotal=this.value;updateAddBtn()" placeholder="e.g. 12">
-      </div>
-      <div>
-        <label class="label">Designs Already Completed</label>
-        <input class="input" type="number" value="${escHtml(state.addCompleted)}"
-          oninput="state.addCompleted=this.value" placeholder="0">
-      </div>
-
-      <button id="add-kit-btn" class="btn ${!canAdd ? 'btn-disabled' : ''}" style="margin-top:8px"
-        onclick="handleAddKit()" ${!canAdd ? 'disabled' : ''}>
-        ${state.bulkMode ? 'Add & Next' : 'Add Kit'}
-      </button>
-
-      ${state.bulkMode ? `
-        <button class="btn-outline" onclick="state.bulkMode=false;navigateTo('home')">
-          Done Adding
-        </button>` : ''}
-    </div>
-    </div>
-  </div>`;
-
-  return html;
-
-  return html;
-}
-
-// ── DETAIL VIEW ──
-function renderDetail() {
-  const kit = getSelectedKit();
-  if (!kit) { navigateTo('home'); return ''; }
-
-  const s = getKitStats(kit);
-  const designs = kit.designs || [];
-
-  let html = `<div class="screen" style="padding-bottom:40px">`;
-
-  // Header
-  html += `
-    <div class="header">
-      <button class="back-btn" onclick="navigateTo('home')">← Back</button>
-      <div style="flex:1"></div>
-      <button style="background:none;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;padding:8px;font-family:var(--font-body)"
-        onclick="openEditKit()">Edit</button>
-      <button style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:8px;font-family:var(--font-body)"
-        onclick="state.showDeleteModal=true;state.deleteTargetId='${kit.id}';render()">Delete</button>
-    </div>`;
-
-  // Kit Info
-  html += `
-    <div style="text-align:center;padding:20px 24px 24px">
-      <div style="color:var(--purple-light);font-size:14px;font-weight:600;letter-spacing:1px;margin-bottom:6px">
-        KIT #${kit.number}
-      </div>
-      <h1 style="font-family:var(--font-display);font-size:28px;font-weight:700;
-        color:${s.isComplete ? 'var(--green)' : 'var(--text-bright)'};margin-bottom:24px">
-        ${escHtml(kit.name)}${s.isComplete ? ' ✨' : ''}
-      </h1>
-
-      <div style="display:flex;justify-content:center;margin-bottom:20px">
-        ${progressRingSvg(s.completed, s.total, 120)}
-      </div>
-
-      <div style="font-size:32px;font-weight:700;color:var(--text-bright)">
-        ${s.completed} <span style="color:var(--text-dimmer);font-size:20px">of</span> ${s.total}
-      </div>
-      <div style="color:var(--text-dim);font-size:14px;margin-top:4px">designs completed · ${s.pct}%</div>
-
-      <div class="progress-bar" style="margin:24px auto 0;max-width:280px">
-        <div class="progress-fill" style="width:${s.pct}%;
-          background:${s.isComplete
-            ? 'linear-gradient(90deg, var(--green), var(--cyan))'
-            : 'linear-gradient(90deg, var(--purple), var(--purple-light))'}">
-        </div>
-      </div>
-    </div>`;
-
-  // Completion banner
-  if (s.isComplete) {
-    html += `
-      <div style="margin:0 24px 20px;text-align:center;padding:20px;
-        background:linear-gradient(135deg,rgba(22,163,74,0.08),rgba(8,145,178,0.05));
-        border-radius:16px;border:1px solid rgba(22,163,74,0.15)">
-        <div style="font-size:24px">🎉</div>
-        <div style="color:var(--green);font-weight:600;font-size:16px;margin-top:4px">Kit Complete!</div>
-      </div>`;
-  }
-
-  // Design list
-  html += `
-    <div style="padding:0 24px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <h3 style="font-size:16px;font-weight:600;color:var(--text-bright)">Designs</h3>
-        <span style="font-size:13px;color:var(--text-dim)">Tap to complete · Press to rename</span>
-      </div>`;
-
-  designs.forEach((design, idx) => {
-    const displayName = design.name || `Design #${idx + 1}`;
-    const isEditing = state.editingDesignId === design.id;
-
-    if (isEditing) {
-      html += `
-        <div class="design-item" style="gap:8px">
-          <input class="rename-input" id="rename-${design.id}" value="${escHtml(design.name)}"
-            placeholder="Design #${idx + 1}"
-            onkeydown="if(event.key==='Enter'){renameDesign('${kit.id}','${design.id}',this.value)}"
-            onblur="renameDesign('${kit.id}','${design.id}',this.value)">
-          <button style="background:none;border:none;color:var(--purple-light);font-size:13px;cursor:pointer;white-space:nowrap;font-family:var(--font-body)"
-            onclick="renameDesign('${kit.id}','${design.id}',document.getElementById('rename-${design.id}').value)">
-            Save
-          </button>
-        </div>`;
-    } else {
-      html += `
-        <div class="design-item ${design.completed ? 'done' : ''}"
-          onclick="toggleDesign('${kit.id}','${design.id}')"
-          oncontextmenu="event.preventDefault();state.editingDesignId='${design.id}';render();setTimeout(()=>{const el=document.getElementById('rename-${design.id}');if(el)el.focus()},50)"
-          ontouchstart="this._longPress=setTimeout(()=>{state.editingDesignId='${design.id}';render();setTimeout(()=>{const el=document.getElementById('rename-${design.id}');if(el)el.focus()},50)},500)"
-          ontouchend="clearTimeout(this._longPress)"
-          ontouchmove="clearTimeout(this._longPress)">
-          <div class="design-checkbox ${design.completed ? 'checked' : ''}">
-            ${design.completed ? `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 7L5.5 10.5L12 3.5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>` : ''}
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:15px;color:${design.completed ? 'var(--green)' : 'var(--text)'};
-              ${design.completed ? 'text-decoration:line-through;opacity:0.7' : ''};
-              overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-              ${escHtml(displayName)}
-            </div>
-          </div>
-          <button style="background:none;border:none;color:var(--text-dimmer);font-size:11px;cursor:pointer;padding:4px 8px;font-family:var(--font-body)"
-            onclick="event.stopPropagation();state.editingDesignId='${design.id}';render();setTimeout(()=>{const el=document.getElementById('rename-${design.id}');if(el)el.focus()},50)">
-            rename
-          </button>
-        </div>`;
-    }
-  });
-
-  html += `</div></div>`;
-  return html;
-}
-
-function openEditKit() {
-  const kit = getSelectedKit();
-  if (!kit) return;
-  state.editNumber = String(kit.number);
-  state.editName = kit.name;
-  state.editTotal = String(kit.designs ? kit.designs.length : 0);
-  navigateTo('edit');
-}
-
-// ── EDIT VIEW ──
-function renderEdit() {
-  const kit = getSelectedKit();
-  if (!kit) { navigateTo('home'); return ''; }
-
-  const canSave = state.editNumber && state.editTotal;
-
-  let html = `<div class="screen" style="padding-bottom:40px">`;
-  html += `
-    <div class="header">
-      <button class="back-btn" onclick="navigateTo('detail','${kit.id}')">← Cancel</button>
-    </div>
-    <div style="padding:10px 24px">
-      <h2 style="font-family:var(--font-display);font-size:24px;color:var(--text-bright);margin-bottom:24px">Edit Kit</h2>
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <div>
-          <label class="label">Kit Number</label>
-          <input class="input" type="number" value="${escHtml(state.editNumber)}"
-            oninput="state.editNumber=this.value;updateEditBtn()">
-        </div>
-        <div>
-          <label class="label">Kit Name</label>
-          <input class="input" value="${escHtml(state.editName)}"
-            oninput="state.editName=this.value">
-        </div>
-        <div>
-          <label class="label">Total Designs</label>
-          <input class="input" type="number" value="${escHtml(state.editTotal)}"
-            oninput="state.editTotal=this.value;updateEditBtn()">
-          <div style="font-size:12px;color:var(--text-dimmer);margin-top:6px">
-            Changing this will add or remove designs from the end of the list
-          </div>
-        </div>
-        <button id="edit-save-btn" class="btn ${!canSave ? 'btn-disabled' : ''}" style="margin-top:8px"
-          onclick="handleSaveEdit()" ${!canSave ? 'disabled' : ''}>
-          Save Changes
-        </button>
-      </div>
-    </div>
-  </div>`;
-
-  return html;
-}
-
-// ── PICKER VIEW ──
-function renderPicker() {
-  const incompleteCount = state.kits.filter(k => !getKitStats(k).isComplete).length;
-  const result = state.pickerResult;
-
-  let html = `<div class="screen" style="padding-bottom:40px">`;
-
-  html += `
-    <div class="header">
-      <button class="back-btn" onclick="state.pickerResult=null;state.spinning=false;clearTimeout(spinnerInterval);navigateTo('home')">← Back</button>
-    </div>
-    <div style="text-align:center;padding:40px 24px">
-      <h2 style="font-family:var(--font-display);font-size:28px;font-weight:700;color:var(--text-bright);margin-bottom:8px">
-        ◆ Pick Next Kit
-      </h2>
-      <p style="color:var(--text-dim);font-size:14px;margin-bottom:40px">
-        ${incompleteCount} kit${incompleteCount !== 1 ? 's' : ''} remaining
-      </p>
-
-      <div class="spinner-box">
-        ${!state.spinning && !result
-          ? `<div style="color:var(--text-dimmer);font-size:16px">Tap the button to pick a kit!</div>`
-          : ''}
-        <div id="spinner-display" style="padding:${state.spinning ? '20px' : '0'}"></div>
-      </div>`;
-
-  if (result && !state.spinning) {
-    const rs = getKitStats(result);
-    html += `
-      <div style="animation:slide-up 0.4s ease;margin-bottom:24px">
-        <div style="background:linear-gradient(135deg,rgba(124,58,237,0.06),rgba(8,145,178,0.04));
-          border:1px solid rgba(124,58,237,0.15);border-radius:16px;padding:24px;margin-bottom:16px">
-          <div style="font-size:14px;color:var(--purple-light);font-weight:600;margin-bottom:4px">YOUR NEXT KIT</div>
-          <div style="font-family:var(--font-display);font-size:24px;font-weight:700;color:var(--text-bright);margin-bottom:8px">
-            #${result.number} — ${escHtml(result.name)}
-          </div>
-          <div style="color:var(--text-dim);font-size:14px">${rs.completed} of ${rs.total} designs done</div>
-        </div>
-        <div style="display:flex;gap:12px">
-          <button class="btn" style="flex:1;box-shadow:0 4px 20px var(--purple-glow)"
-            onclick="navigateTo('detail','${result.id}');state.pickerResult=null">
-            Let's Go! →
-          </button>
-          <button class="btn-outline" style="padding:14px 20px"
-            onclick="state.pickerResult=null;startSpinner()">
-            Re-roll
-          </button>
-        </div>
-      </div>`;
-  }
-
-  if (!result) {
-    html += `
-      <button class="btn btn-big ${state.spinning || incompleteCount === 0 ? 'btn-disabled' : ''}"
-        style="max-width:300px;margin:0 auto"
-        onclick="startSpinner()" ${state.spinning || incompleteCount === 0 ? 'disabled' : ''}>
-        ${state.spinning ? 'Picking...' : incompleteCount === 0 ? 'All Kits Complete! 🎉' : '◆ Spin!'}
-      </button>`;
-  }
-
-  html += `</div></div>`;
-  return html;
-}
-
-// ══════════════════════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════════════════════
-loadKitsFromFirebase();
-render();
+// === INIT ===
+loadData();render();
 </script>
 </body>
 </html>
