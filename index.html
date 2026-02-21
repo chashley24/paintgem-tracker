@@ -835,6 +835,32 @@ function openAddKit() {
   navigateTo('add');
 }
 
+function updateAddBtn() {
+  const btn = document.getElementById('add-kit-btn');
+  if (!btn) return;
+  const canAdd = state.addNumber && state.addTotal;
+  if (canAdd) {
+    btn.classList.remove('btn-disabled');
+    btn.disabled = false;
+  } else {
+    btn.classList.add('btn-disabled');
+    btn.disabled = true;
+  }
+}
+
+function updateEditBtn() {
+  const btn = document.getElementById('edit-save-btn');
+  if (!btn) return;
+  const canSave = state.editNumber && state.editTotal;
+  if (canSave) {
+    btn.classList.remove('btn-disabled');
+    btn.disabled = false;
+  } else {
+    btn.classList.add('btn-disabled');
+    btn.disabled = true;
+  }
+}
+
 // ── ADD VIEW ──
 function renderAdd() {
   const canAdd = state.addNumber && state.addTotal;
@@ -869,7 +895,7 @@ function renderAdd() {
       <div>
         <label class="label">Kit Number *</label>
         <input class="input" type="number" value="${escHtml(state.addNumber)}"
-          oninput="state.addNumber=this.value" placeholder="e.g. 1">
+          oninput="state.addNumber=this.value;updateAddBtn()" placeholder="e.g. 1">
       </div>
       <div>
         <label class="label">Kit Name</label>
@@ -879,7 +905,7 @@ function renderAdd() {
       <div>
         <label class="label">Total Designs *</label>
         <input class="input" type="number" value="${escHtml(state.addTotal)}"
-          oninput="state.addTotal=this.value" placeholder="e.g. 12">
+          oninput="state.addTotal=this.value;updateAddBtn()" placeholder="e.g. 12">
       </div>
       <div>
         <label class="label">Designs Already Completed</label>
@@ -887,7 +913,7 @@ function renderAdd() {
           oninput="state.addCompleted=this.value" placeholder="0">
       </div>
 
-      <button class="btn ${!canAdd ? 'btn-disabled' : ''}" style="margin-top:8px"
+      <button id="add-kit-btn" class="btn ${!canAdd ? 'btn-disabled' : ''}" style="margin-top:8px"
         onclick="handleAddKit()" ${!canAdd ? 'disabled' : ''}>
         ${state.bulkMode ? 'Add & Next' : 'Add Kit'}
       </button>
@@ -899,6 +925,8 @@ function renderAdd() {
     </div>
     </div>
   </div>`;
+
+  return html;
 
   return html;
 }
@@ -1047,7 +1075,7 @@ function renderEdit() {
         <div>
           <label class="label">Kit Number</label>
           <input class="input" type="number" value="${escHtml(state.editNumber)}"
-            oninput="state.editNumber=this.value">
+            oninput="state.editNumber=this.value;updateEditBtn()">
         </div>
         <div>
           <label class="label">Kit Name</label>
@@ -1057,12 +1085,12 @@ function renderEdit() {
         <div>
           <label class="label">Total Designs</label>
           <input class="input" type="number" value="${escHtml(state.editTotal)}"
-            oninput="state.editTotal=this.value">
+            oninput="state.editTotal=this.value;updateEditBtn()">
           <div style="font-size:12px;color:var(--text-dimmer);margin-top:6px">
             Changing this will add or remove designs from the end of the list
           </div>
         </div>
-        <button class="btn ${!canSave ? 'btn-disabled' : ''}" style="margin-top:8px"
+        <button id="edit-save-btn" class="btn ${!canSave ? 'btn-disabled' : ''}" style="margin-top:8px"
           onclick="handleSaveEdit()" ${!canSave ? 'disabled' : ''}>
           Save Changes
         </button>
