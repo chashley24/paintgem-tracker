@@ -67,6 +67,11 @@ input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none}input[ty
 .photo-add-btn:active{transform:scale(0.95)}
 .history-item{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}.history-item:last-child{border-bottom:none}
 .history-dot{width:10px;height:10px;border-radius:50%;background:var(--purple-light);margin-top:5px;flex-shrink:0}
+.swipe-container{position:relative;overflow:hidden;border-bottom:1px solid var(--border)}
+.swipe-container:last-child{border-bottom:none}
+.swipe-content{position:relative;z-index:2;background:var(--bg);transition:transform 0.2s ease;display:flex;gap:14px;padding:14px 0}
+.swipe-content.dragging{transition:none}
+.swipe-delete-bg{position:absolute;right:0;top:0;bottom:0;width:90px;display:flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-weight:600;font-size:14px;font-family:var(--fb);z-index:1}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;padding:6px 0;padding-bottom:max(6px,env(safe-area-inset-bottom));z-index:100}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;padding:6px 4px;font-family:var(--fb);color:var(--text-dim);font-size:10px;font-weight:600}
 .nav-btn.active{color:var(--purple)}.nav-btn svg{width:22px;height:22px}
@@ -105,6 +110,7 @@ async function fbAdd(d){if(fbOk)try{await kitsCol.add(d)}catch(e){showToast('Sav
 async function fbUp(id,d){if(fbOk)try{await kitsCol.doc(id).update(d)}catch(e){showToast('Save failed')}}
 async function fbDel(id){if(fbOk)try{await kitsCol.doc(id).delete()}catch(e){showToast('Delete failed')}}
 async function fbHist(kit){if(fbOk)try{await histCol.add({kitId:kit.id,kitNumber:kit.number,kitName:kit.name,timestamp:Date.now()})}catch(e){}}
+async function fbDelHist(id){if(fbOk)try{await histCol.doc(id).delete()}catch(e){showToast('Delete failed')}}
 
 // === HELPERS ===
 function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
@@ -173,6 +179,8 @@ function render(){
   // Lightbox
   if(S.lightboxPhoto){const k=S.kits.find(x=>x.id===S.selectedKitId);const d=k&&k.designs?k.designs.find(x=>x.id===S.lightboxDesignId):null;if(d&&d.photo){h+=`<div class="photo-lightbox" onclick="S.lightboxPhoto=null;render()"><img src="${d.photo}" onclick="event.stopPropagation()"><div style="color:#fff;margin-top:12px;font-size:16px;font-weight:600">${E(S.lightboxDesignName)}</div><button style="margin-top:12px;background:rgba(255,255,255,0.15);border:none;color:#fff;padding:10px 24px;border-radius:10px;font-size:14px;cursor:pointer;font-family:var(--fb)" onclick="event.stopPropagation();removePhoto('${S.selectedKitId}','${S.lightboxDesignId}')">Remove Photo</button></div>`}else{S.lightboxPhoto=null}}
   app.innerHTML=h;
+  // Init swipe handlers after DOM update
+  if(S.view==='history')setTimeout(initSwipeHandlers,50);
 }
 
 // === HOME ===
@@ -250,10 +258,46 @@ function rPicker(){
 
 // === HISTORY ===
 function rHistory(){
-  let h=`<div class="screen" style="padding-bottom:80px"><div style="padding:24px 20px 20px"><h2 style="font-family:var(--fd);font-size:24px;font-weight:700;color:var(--text-bright)">Pick History</h2><p style="color:var(--text-dim);font-size:14px;margin-top:4px">Every kit the spinner has chosen</p></div><div style="padding:0 24px">`;
+  let h=`<div class="screen" style="padding-bottom:80px"><div style="padding:24px 20px 20px"><h2 style="font-family:var(--fd);font-size:24px;font-weight:700;color:var(--text-bright)">Pick History</h2><p style="color:var(--text-dim);font-size:14px;margin-top:4px">Swipe left to remove · tap to open kit</p></div><div style="padding:0 24px">`;
   if(!S.pickHistory.length){h+=`<div style="text-align:center;padding:40px;color:var(--text-dimmer)"><div style="font-size:28px;margin-bottom:8px">🎰</div><div style="font-size:14px">No picks yet! Use the spinner.</div></div>`}
-  else{S.pickHistory.forEach(p=>{const k=S.kits.find(x=>x.id===p.kitId),s=k?ks(k):null;h+=`<div class="history-item"${k?` onclick="nav('detail','${k.id}')" style="cursor:pointer"`:''}><div class="history-dot"></div><div style="flex:1"><div style="font-size:15px;font-weight:600;color:var(--text-bright)">#${p.kitNumber} — ${E(p.kitName)}</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px">${fmtDate(p.timestamp)}</div>${s?`<div style="font-size:12px;color:var(--text-dimmer);margin-top:2px">${s.c}/${s.t} · ${s.p}%</div>`:'<div style="font-size:12px;color:var(--red);margin-top:2px">Kit deleted</div>'}</div>${k?'<div style="color:#c4c0b8;font-size:18px">›</div>':''}</div>`})}
+  else{S.pickHistory.forEach(p=>{const k=S.kits.find(x=>x.id===p.kitId),s=k?ks(k):null;
+    h+=`<div class="swipe-container"><div class="swipe-delete-bg" onclick="deleteHistoryItem('${p.id}')">Delete</div><div class="swipe-content"${k?` onclick="nav('detail','${k.id}')" style="cursor:pointer"`:''}><div class="history-dot"></div><div style="flex:1"><div style="font-size:15px;font-weight:600;color:var(--text-bright)">#${p.kitNumber} — ${E(p.kitName)}</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px">${fmtDate(p.timestamp)}</div>${s?`<div style="font-size:12px;color:var(--text-dimmer);margin-top:2px">${s.c}/${s.t} · ${s.p}%</div>`:'<div style="font-size:12px;color:var(--red);margin-top:2px">Kit deleted</div>'}</div>${k?'<div style="color:#c4c0b8;font-size:18px">›</div>':''}</div></div>`})}
   h+=`</div>${bnav()}</div>`;return h;
+}
+
+// === SWIPE TO DELETE ===
+function deleteHistoryItem(id){fbDelHist(id);showToast('Removed from history')}
+
+function initSwipeHandlers(){
+  document.querySelectorAll('.swipe-container').forEach(container=>{
+    const content=container.querySelector('.swipe-content');
+    if(!content||content._swipeInit)return;
+    content._swipeInit=true;
+    let startX=0,currentX=0,isDragging=false;
+
+    content.addEventListener('touchstart',e=>{
+      startX=e.touches[0].clientX;currentX=0;isDragging=true;
+      content.classList.add('dragging');
+    },{passive:true});
+
+    content.addEventListener('touchmove',e=>{
+      if(!isDragging)return;
+      const diff=e.touches[0].clientX-startX;
+      currentX=Math.min(0,Math.max(-90,diff));
+      content.style.transform=`translateX(${currentX}px)`;
+    },{passive:true});
+
+    content.addEventListener('touchend',()=>{
+      isDragging=false;content.classList.remove('dragging');
+      if(currentX<-45){content.style.transform='translateX(-90px)'}
+      else{content.style.transform='translateX(0)'}
+    });
+
+    // Close when tapping elsewhere
+    document.addEventListener('touchstart',e=>{
+      if(!container.contains(e.target)){content.style.transform='translateX(0)'}
+    },{passive:true});
+  });
 }
 
 // === GALLERY ===
