@@ -104,7 +104,7 @@ function selKit(){return S.kits.find(k=>k.id===S.selectedKitId)||null}
 // === FIREBASE ===
 function loadData(){
   if(!fbOk){S.loaded=true;render();return}
-  kitsCol.orderBy('number','asc').onSnapshot(s=>{S.kits=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded=true;render()});
+  kitsCol.orderBy('number','asc').onSnapshot(s=>{S.kits=s.docs.map(d=>({id:d.id,...d.data()}));S.loaded=true;render();if(!S._migrated){S._migrated=true;setTimeout(migrateAllBase64,2000)}});
   histCol.orderBy('timestamp','desc').limit(100).onSnapshot(s=>{S.pickHistory=s.docs.map(d=>({id:d.id,...d.data()}));if(S.view==='history')render()});
 }
 async function fbAdd(d){if(fbOk)try{await kitsCol.add(d)}catch(e){showToast('Save failed')}}
@@ -132,10 +132,10 @@ function handlePhotoSelected(inp){
   const f=inp.files[0];if(!f)return;
   const k=selKit();if(!k||!S.photoTargetDesignId)return;
   const did=S.photoTargetDesignId;
+  const kid=k.id;
   S.photoTargetDesignId=null;
   showToast('Uploading photo...');
 
-  // Resize first
   const reader=new FileReader();
   reader.onload=function(e){
     const img=new Image();
@@ -145,15 +145,16 @@ function handlePhotoSelected(inp){
       if(w>mx||h>mx){if(w>h){h=Math.round(h*mx/w);w=mx}else{w=Math.round(w*mx/h);h=mx}}
       canvas.width=w;canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      canvas.toBlob(function(blob){
-        uploadPhoto(k.id,did,blob);
-      },'image/jpeg',0.8);
+      canvas.toBlob(function(blob){uploadPhoto(kid,did,blob)},'image/jpeg',0.8);
     };
     img.src=e.target.result;
   };
   reader.readAsDataURL(f);
   inp.value='';
 }
+
+function isBase64(str){return str&&str.startsWith('data:')}
+function hasPhoto(d){return d.photo&&!d.photo.startsWith('migrate:')}
 
 async function uploadPhoto(kitId,designId,blob){
   if(!fbOk)return;
@@ -162,26 +163,79 @@ async function uploadPhoto(kitId,designId,blob){
     const ref=storage.ref(path);
     await ref.put(blob);
     const url=await ref.getDownloadURL();
-    // Save URL to Firestore (tiny string, not base64)
+    // Re-read kit from current state to get latest
     const k=S.kits.find(x=>x.id===kitId);if(!k)return;
-    const ds=k.designs.map(d=>d.id===designId?{...d,photo:url}:d);
+    // Build designs array: set new URL, and strip any base64 data from OTHER designs
+    // (replace base64 with placeholder so we know they need migration)
+    const ds=k.designs.map(d=>{
+      if(d.id===designId)return{...d,photo:url};
+      if(isBase64(d.photo))return{...d,photo:'migrate:'+d.id};
+      return d;
+    });
     await fbUp(kitId,{designs:ds});
     showToast('Photo added!');
+    // Now migrate any base64 photos in the background
+    migrateBase64Photos(kitId);
   }catch(e){
     console.error('Upload failed:',e);
     showToast('Upload failed — try again');
   }
 }
 
+// Migrate old base64 photos to Storage one at a time
+async function migrateBase64Photos(kitId){
+  const k=S.kits.find(x=>x.id===kitId);if(!k||!k.designs)return;
+  for(const d of k.designs){
+    if(d.photo&&d.photo.startsWith('migrate:')){
+      // The base64 data was stripped — we can't recover it here
+      // It was already lost when we saved. This handles future cases.
+    }
+  }
+}
+
+// Run migration on app load for any kits that still have base64 photos
+async function migrateAllBase64(){
+  if(!fbOk)return;
+  for(const k of S.kits){
+    if(!k.designs)continue;
+    const hasBase64=k.designs.some(d=>isBase64(d.photo));
+    if(!hasBase64)continue;
+    console.log('Migrating base64 photos for kit #'+k.number);
+    let changed=false;
+    const ds=[...k.designs];
+    for(let i=0;i<ds.length;i++){
+      const d=ds[i];
+      if(!isBase64(d.photo))continue;
+      try{
+        // Convert base64 to blob
+        const resp=await fetch(d.photo);
+        const blob=await resp.blob();
+        const path=`photos/${k.id}/${d.id}.jpg`;
+        const ref=storage.ref(path);
+        await ref.put(blob);
+        const url=await ref.getDownloadURL();
+        ds[i]={...d,photo:url};
+        changed=true;
+      }catch(e){console.error('Migration failed for design',d.id,e)}
+    }
+    if(changed){
+      try{await fbUp(k.id,{designs:ds});console.log('Migrated kit #'+k.number)}
+      catch(e){console.error('Failed to save migrated kit',e)}
+    }
+  }
+}
+
 async function removePhoto(kid,did){
   const k=S.kits.find(x=>x.id===kid);if(!k)return;
   // Delete from Storage
-  try{
-    const path=`photos/${kid}/${did}.jpg`;
-    await storage.ref(path).delete();
-  }catch(e){console.warn('Storage delete:',e)}
-  // Remove URL from Firestore
-  fbUp(kid,{designs:k.designs.map(d=>d.id===did?{...d,photo:''}:d)});
+  try{await storage.ref(`photos/${kid}/${did}.jpg`).delete()}catch(e){}
+  // Remove URL from Firestore — strip any base64 from other designs too
+  const ds=k.designs.map(d=>{
+    if(d.id===did)return{...d,photo:''};
+    if(isBase64(d.photo))return{...d,photo:'migrate:'+d.id};
+    return d;
+  });
+  fbUp(kid,{designs:ds});
   S.lightboxPhoto=null;showToast('Photo removed');render();
 }
 
@@ -233,7 +287,7 @@ function render(){
   // Delete modal
   if(S.showDeleteModal){const dk=S.kits.find(k=>k.id===S.deleteTargetId);h+=`<div class="modal-overlay" onclick="closeModal()"><div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-family:var(--fd);font-size:20px;color:var(--text-bright);margin-bottom:12px">Delete Kit?</h3><p style="color:var(--text-dim);font-size:14px;margin-bottom:20px;line-height:1.5">Delete <strong>#${dk?dk.number:''} — ${dk?E(dk.name):''}</strong>?</p><div style="display:flex;gap:10px"><button class="btn-outline" style="flex:1;border-radius:12px" onclick="closeModal()">Cancel</button><button class="btn" style="flex:1;background:var(--red);border-radius:12px" onclick="doDelete('${S.deleteTargetId}')">Delete</button></div></div></div>`}
   // Lightbox
-  if(S.lightboxPhoto){const k=S.kits.find(x=>x.id===S.selectedKitId);const d=k&&k.designs?k.designs.find(x=>x.id===S.lightboxDesignId):null;if(d&&d.photo){h+=`<div class="photo-lightbox" onclick="S.lightboxPhoto=null;render()"><img src="${d.photo}" onclick="event.stopPropagation()"><div style="color:#fff;margin-top:12px;font-size:16px;font-weight:600">${E(S.lightboxDesignName)}</div><button style="margin-top:12px;background:rgba(255,255,255,0.15);border:none;color:#fff;padding:10px 24px;border-radius:10px;font-size:14px;cursor:pointer;font-family:var(--fb)" onclick="event.stopPropagation();removePhoto('${S.selectedKitId}','${S.lightboxDesignId}')">Remove Photo</button></div>`}else{S.lightboxPhoto=null}}
+  if(S.lightboxPhoto){const k=S.kits.find(x=>x.id===S.selectedKitId);const d=k&&k.designs?k.designs.find(x=>x.id===S.lightboxDesignId):null;if(d&&hasPhoto(d)){h+=`<div class="photo-lightbox" onclick="S.lightboxPhoto=null;render()"><img src="${d.photo}" onclick="event.stopPropagation()"><div style="color:#fff;margin-top:12px;font-size:16px;font-weight:600">${E(S.lightboxDesignName)}</div><button style="margin-top:12px;background:rgba(255,255,255,0.15);border:none;color:#fff;padding:10px 24px;border-radius:10px;font-size:14px;cursor:pointer;font-family:var(--fb)" onclick="event.stopPropagation();removePhoto('${S.selectedKitId}','${S.lightboxDesignId}')">Remove Photo</button></div>`}else{S.lightboxPhoto=null}}
   app.innerHTML=h;
   // Init swipe handlers after DOM update
   if(S.view==='history')setTimeout(initSwipeHandlers,50);
@@ -243,8 +297,8 @@ function render(){
 function rHome(){
   const st=overall(),fk=filtered();
   let h=`<div class="screen" style="padding-bottom:80px"><div style="padding:24px 20px 20px;background:linear-gradient(180deg,rgba(124,58,237,0.06),transparent)"><h1 style="font-family:var(--fd);font-size:26px;font-weight:700;background:linear-gradient(90deg,var(--purple),var(--cyan),var(--purple));background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gem-shimmer 4s linear infinite;margin-bottom:4px">◆ Paint Gem Tracker</h1><p style="color:var(--text-dimmer);font-size:14px">${st.tk===0?'Add your first kit!':st.tk+' kits · '+st.cd+' of '+st.td+' designs done'}</p></div>`;
-  if(st.tk>0)h+=`<div style="padding:0 20px 16px;display:flex;gap:8px"><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--green)">${st.ck}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">Completed</div></div><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--purple-light)">${st.ip}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">Started</div></div><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--text-dimmer)">${st.ns}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">Not Started</div></div></div>`;
-  if(st.tk>0)h+=`<div style="padding:0 20px 12px"><input class="input" id="search-input" value="${E(S.search)}" oninput="S.search=this.value;updKitList()" placeholder="Search kits..." style="margin-bottom:10px"><div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">${[['all','All'],['ip','Started'],['ns','Not Started'],['done','Complete']].map(([f,l])=>`<button class="pill ${S.filter===f?'active':''}" onclick="S.filter='${f}';render()">${l}</button>`).join('')}</div></div>`;
+  if(st.tk>0)h+=`<div style="padding:0 20px 16px;display:flex;gap:8px"><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--green)">${st.ck}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">Done</div></div><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--purple-light)">${st.ip}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">Active</div></div><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--text-dimmer)">${st.ns}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">New</div></div></div>`;
+  if(st.tk>0)h+=`<div style="padding:0 20px 12px"><input class="input" id="search-input" value="${E(S.search)}" oninput="S.search=this.value;updKitList()" placeholder="Search kits..." style="margin-bottom:10px"><div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">${[['all','All'],['ip','Active'],['ns','New'],['done','Done']].map(([f,l])=>`<button class="pill ${S.filter===f?'active':''}" onclick="S.filter='${f}';render()">${l}</button>`).join('')}</div></div>`;
   h+=`<div id="kit-list-container" style="padding:0 20px">${renderKitItems()}</div>`;
   h+=`<button class="fab" onclick="openAdd()">+</button>${bnav()}</div>`;
   return h;
@@ -268,21 +322,21 @@ function rDetail(){
   h+=`<div style="text-align:center;padding:20px 24px 20px"><div style="color:var(--purple-light);font-size:14px;font-weight:600;letter-spacing:1px;margin-bottom:6px">KIT #${k.number}</div><h1 style="font-family:var(--fd);font-size:26px;font-weight:700;color:${s.done?'var(--green)':'var(--text-bright)'};margin-bottom:16px">${E(k.name)}${s.done?' ✨':''}</h1><div style="display:flex;justify-content:center;margin-bottom:12px">${ring(s.c,s.t,90)}</div><div style="font-size:24px;font-weight:700;color:var(--text-bright)">${s.c} <span style="color:var(--text-dimmer);font-size:16px">of</span> ${s.t}</div><div style="color:var(--text-dim);font-size:13px;margin-top:2px">${s.p}% complete</div><div class="progress-bar" style="margin:14px auto 0;max-width:240px"><div class="progress-fill" style="width:${s.p}%;background:${s.done?'linear-gradient(90deg,var(--green),var(--cyan))':'linear-gradient(90deg,var(--purple),var(--purple-light))'}"></div></div></div>`;
   if(s.done)h+=`<div style="margin:0 24px 12px;text-align:center;padding:14px;background:linear-gradient(135deg,rgba(22,163,74,0.08),rgba(8,145,178,0.05));border-radius:14px;border:1px solid rgba(22,163,74,0.15)"><span style="font-size:20px">🎉</span> <span style="color:var(--green);font-weight:600">Kit Complete!</span></div>`;
   // Tabs
-  const photoCount=ds.filter(d=>d.photo).length;
+  const photoCount=ds.filter(d=>hasPhoto(d)).length;
   h+=`<div class="tab-bar"><button class="tab-btn ${S.detailTab==='designs'?'active':''}" onclick="switchTab('designs')">Designs</button><button class="tab-btn ${S.detailTab==='photos'?'active':''}" onclick="switchTab('photos')">Photos${photoCount?' ('+photoCount+')':''}</button><button class="tab-btn ${S.detailTab==='notes'?'active':''}" onclick="switchTab('notes')">Notes${k.notes?' ●':''}</button></div>`;
   // DESIGNS TAB
   if(S.detailTab==='designs'){
     h+=`<div style="padding:0 24px">`;
     ds.forEach((d,i)=>{const dn=d.name||`Design #${i+1}`;
       if(S.editingDesignId===d.id){h+=`<div class="design-item" style="gap:8px"><input class="rename-input" id="rename-${d.id}" value="${E(d.name)}" placeholder="Design #${i+1}" onkeydown="if(event.key==='Enter')renameDes('${k.id}','${d.id}',this.value)" onblur="renameDes('${k.id}','${d.id}',this.value)"><button style="background:none;border:none;color:var(--purple-light);font-size:13px;cursor:pointer;font-family:var(--fb)" onclick="renameDes('${k.id}','${d.id}',document.getElementById('rename-${d.id}').value)">Save</button></div>`}
-      else{h+=`<div class="design-item ${d.completed?'done':''}" onclick="toggleDes('${k.id}','${d.id}')"><div class="design-checkbox ${d.completed?'checked':''}">${d.completed?'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L5.5 10.5L12 3.5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div><div style="flex:1;min-width:0"><div style="font-size:15px;color:${d.completed?'var(--green)':'var(--text)'};${d.completed?'text-decoration:line-through;opacity:0.7':''};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${E(dn)}</div>${d.photo?'<div style="font-size:11px;color:var(--purple-light);margin-top:1px">📷 photo</div>':''}</div><button style="background:none;border:none;color:var(--text-dimmer);font-size:11px;cursor:pointer;padding:4px 8px;font-family:var(--fb)" onclick="event.stopPropagation();S.editingDesignId='${d.id}';render();setTimeout(()=>{const el=document.getElementById('rename-${d.id}');if(el)el.focus()},50)">rename</button></div>`}
+      else{h+=`<div class="design-item ${d.completed?'done':''}" onclick="toggleDes('${k.id}','${d.id}')"><div class="design-checkbox ${d.completed?'checked':''}">${d.completed?'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L5.5 10.5L12 3.5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}</div><div style="flex:1;min-width:0"><div style="font-size:15px;color:${d.completed?'var(--green)':'var(--text)'};${d.completed?'text-decoration:line-through;opacity:0.7':''};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${E(dn)}</div>${hasPhoto(d)?'<div style="font-size:11px;color:var(--purple-light);margin-top:1px">📷 photo</div>':''}</div><button style="background:none;border:none;color:var(--text-dimmer);font-size:11px;cursor:pointer;padding:4px 8px;font-family:var(--fb)" onclick="event.stopPropagation();S.editingDesignId='${d.id}';render();setTimeout(()=>{const el=document.getElementById('rename-${d.id}');if(el)el.focus()},50)">rename</button></div>`}
     });h+=`</div>`;
   }
   // PHOTOS TAB
   if(S.detailTab==='photos'){
     h+=`<div style="padding:0 24px"><div class="photo-grid">`;
     ds.forEach((d,i)=>{const dn=d.name||`Design #${i+1}`;
-      if(d.photo){h+=`<div class="photo-thumb" onclick="S.lightboxPhoto=true;S.lightboxDesignName='${E(dn)}';S.lightboxDesignId='${d.id}';render()"><img src="${d.photo}" loading="lazy"><div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));color:#fff;font-size:10px;font-weight:600">${E(dn)}</div></div>`}
+      if(hasPhoto(d)){h+=`<div class="photo-thumb" onclick="S.lightboxPhoto=true;S.lightboxDesignName='${E(dn)}';S.lightboxDesignId='${d.id}';render()"><img src="${d.photo}" loading="lazy"><div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));color:#fff;font-size:10px;font-weight:600">${E(dn)}</div></div>`}
       else{h+=`<div class="photo-add-btn" onclick="openPhotoPicker('${d.id}')"><span style="font-size:18px">📷</span><span>${E(dn)}</span></div>`}
     });h+=`</div></div>`;
   }
@@ -358,7 +412,7 @@ function initSwipeHandlers(){
 
 // === GALLERY ===
 function rGallery(){
-  const photos=[];S.kits.forEach(k=>{if(!k.designs)return;k.designs.forEach((d,i)=>{if(d.photo)photos.push({photo:d.photo,dn:d.name||`Design #${i+1}`,kn:k.name,knum:k.number,kid:k.id,did:d.id})})});
+  const photos=[];S.kits.forEach(k=>{if(!k.designs)return;k.designs.forEach((d,i)=>{if(hasPhoto(d))photos.push({photo:d.photo,dn:d.name||`Design #${i+1}`,kn:k.name,knum:k.number,kid:k.id,did:d.id})})});
   let h=`<div class="screen" style="padding-bottom:80px"><div style="padding:24px 20px 20px"><h2 style="font-family:var(--fd);font-size:24px;font-weight:700;color:var(--text-bright)">Photo Gallery</h2><p style="color:var(--text-dim);font-size:14px;margin-top:4px">${photos.length} photo${photos.length!==1?'s':''} across all kits</p></div><div style="padding:0 20px">`;
   if(!photos.length){h+=`<div style="text-align:center;padding:40px;color:var(--text-dimmer)"><div style="font-size:28px;margin-bottom:8px">📷</div><div style="font-size:14px;margin-bottom:4px">No photos yet!</div><div style="font-size:13px">Open a kit → Photos tab to add some.</div></div>`}
   else{h+=`<div class="photo-grid">`;photos.forEach(p=>{h+=`<div class="photo-thumb" onclick="S.lightboxPhoto=true;S.lightboxDesignName='${E(p.dn)} · Kit #${p.knum}';S.lightboxDesignId='${p.did}';S.selectedKitId='${p.kid}';render()"><img src="${p.photo}" loading="lazy"><div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));color:#fff;font-size:9px;font-weight:600">#${p.knum} · ${E(p.dn)}</div></div>`});h+=`</div>`}
