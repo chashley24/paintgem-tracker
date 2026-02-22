@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Migration Tool</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #f8f7f4; color: #2d2a26; }
+  h1 { font-size: 22px; margin-bottom: 8px; }
+  .subtitle { color: #7a756d; font-size: 14px; margin-bottom: 24px; }
+  .log { background: #fff; border: 1px solid #e8e5df; border-radius: 12px; padding: 16px; min-height: 200px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-y: auto; max-height: 400px; }
+  .log .ok { color: #16a34a; }
+  .log .err { color: #dc2626; }
+  .log .info { color: #7c3aed; }
+  button { background: linear-gradient(135deg, #7c3aed, #a855f7); border: none; color: #fff; padding: 14px 28px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 20px; }
+  button:disabled { background: #d4d0c8; cursor: not-allowed; }
+  .warning { background: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #92400e; margin-bottom: 20px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>📷 Photo Migration Tool</h1>
+<p class="subtitle">Moves base64 photos from Firestore → Firebase Storage (one-time use)</p>
+
+<div class="warning">
+  <strong>What this does:</strong> Scans the live <code>kits</code> collection for photos stored as base64 data. Uploads each one to Firebase Storage, then replaces the base64 string with the Storage download URL. Your wife's app will keep working — the photos will just load from Storage instead.
+</div>
+
+<button id="btn" onclick="runMigration()">Run Migration</button>
+
+<div class="log" id="log">Ready. Click the button to start.
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCuPIasrn-pOYEkaQRQaJpvVeZfOhaVYJI",
+  authDomain: "my-project-first-try-efd9b.firebaseapp.com",
+  databaseURL: "https://my-project-first-try-efd9b.firebaseio.com",
+  projectId: "my-project-first-try-efd9b",
+  storageBucket: "my-project-first-try-efd9b.firebasestorage.app",
+  messagingSenderId: "239272444767",
+  appId: "1:239272444767:web:83baa498250318a7f3ecea",
+  measurementId: "G-T91MW46R8M"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+const logEl = document.getElementById('log');
+
+function log(msg, cls='') {
+  const span = document.createElement('span');
+  span.className = cls;
+  span.textContent = msg + '\n';
+  logEl.appendChild(span);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function isBase64(str) {
+  return str && str.startsWith('data:');
+}
+
+async function runMigration() {
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  logEl.innerHTML = '';
+
+  try {
+    log('Loading kits from Firestore...', 'info');
+    const snapshot = await db.collection('kits').get();
+    log('Found ' + snapshot.size + ' kits.', 'info');
+
+    let totalFound = 0;
+    let totalMigrated = 0;
+    let totalFailed = 0;
+
+    for (const doc of snapshot.docs) {
+      const kit = { id: doc.id, ...doc.data() };
+      if (!kit.designs) continue;
+
+      const base64Designs = kit.designs.filter(d => isBase64(d.photo));
+      if (base64Designs.length === 0) continue;
+
+      log('\nKit #' + kit.number + ' — ' + kit.name + ': ' + base64Designs.length + ' base64 photo(s)', 'info');
+      totalFound += base64Designs.length;
+
+      // Process each photo one at a time
+      let updatedDesigns = [...kit.designs];
+      let kitChanged = false;
+
+      for (const design of base64Designs) {
+        const idx = updatedDesigns.findIndex(d => d.id === design.id);
+        const designName = design.name || 'Design #' + (idx + 1);
+
+        try {
+          log('  Uploading "' + designName + '"...');
+
+          // Convert base64 to blob
+          const response = await fetch(design.photo);
+          const blob = await response.blob();
+
+          // Upload to Storage
+          const path = 'photos/' + kit.id + '/' + design.id + '.jpg';
+          const ref = storage.ref(path);
+          await ref.put(blob);
+          const url = await ref.getDownloadURL();
+
+          // Update the design with the URL
+          updatedDesigns[idx] = { ...updatedDesigns[idx], photo: url };
+          kitChanged = true;
+          totalMigrated++;
+          log('  ✓ "' + designName + '" migrated successfully', 'ok');
+
+        } catch (e) {
+          totalFailed++;
+          log('  ✗ "' + designName + '" failed: ' + e.message, 'err');
+        }
+      }
+
+      // Save updated kit back to Firestore
+      if (kitChanged) {
+        try {
+          await db.collection('kits').doc(kit.id).update({ designs: updatedDesigns });
+          log('  ✓ Kit #' + kit.number + ' saved to Firestore', 'ok');
+        } catch (e) {
+          log('  ✗ Failed to save Kit #' + kit.number + ': ' + e.message, 'err');
+        }
+      }
+    }
+
+    log('\n════════════════════════════', 'info');
+    log('DONE!', 'info');
+    log('Found: ' + totalFound + ' base64 photos', 'info');
+    log('Migrated: ' + totalMigrated, 'ok');
+    if (totalFailed > 0) log('Failed: ' + totalFailed, 'err');
+    if (totalFound === 0) log('No base64 photos found — nothing to migrate!', 'ok');
+    log('════════════════════════════', 'info');
+
+  } catch (e) {
+    log('ERROR: ' + e.message, 'err');
+  }
+
+  btn.textContent = 'Done';
+}
+</script>
+</body>
+</html>
