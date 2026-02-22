@@ -10,6 +10,7 @@
 <title>Paint Gem Tracker</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -93,8 +94,8 @@ const firebaseConfig = {
   measurementId: "G-T91MW46R8M"
 };
 
-let db,kitsCol,histCol,fbOk=false;
-try{firebase.initializeApp(firebaseConfig);db=firebase.firestore();db.enablePersistence({synchronizeTabs:false}).catch(()=>{});kitsCol=db.collection('kits');histCol=db.collection('pickHistory');fbOk=true}catch(e){console.error(e)}
+let db,kitsCol,histCol,storage,fbOk=false;
+try{firebase.initializeApp(firebaseConfig);db=firebase.firestore();db.enablePersistence({synchronizeTabs:false}).catch(()=>{});kitsCol=db.collection('kits');histCol=db.collection('pickHistory_test');storage=firebase.storage();fbOk=true}catch(e){console.error(e)}
 
 let S={kits:[],pickHistory:[],loaded:false,view:'home',selectedKitId:null,detailTab:'designs',filter:'all',search:'',spinning:false,pickerResult:null,bulkMode:false,editingDesignId:null,editingNotes:false,toast:null,toastTimer:null,lightboxPhoto:null,lightboxDesignName:'',lightboxDesignId:'',addNumber:'',addName:'',addTotal:'',addCompleted:'0',editNumber:'',editName:'',editTotal:'',showDeleteModal:false,deleteTargetId:null,photoTargetDesignId:null};
 
@@ -124,10 +125,48 @@ function fmtDate(ts){const d=new Date(ts),mo=['Jan','Feb','Mar','Apr','May','Jun
 function ring(c,t,sz=44){const p=t>0?c/t:0,r=(sz-6)/2,ci=2*Math.PI*r,o=ci*(1-p),co=p>=1?'var(--green)':p>0?'var(--purple-light)':'#d4d0c8',ch=p>=1?`<text x="${sz/2}" y="${sz/2+1}" text-anchor="middle" dominant-baseline="middle" fill="var(--green)" font-size="16">✓</text>`:'';return`<svg width="${sz}" height="${sz}" style="flex-shrink:0"><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="#e8e5df" stroke-width="4"/><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="${co}" stroke-width="4" stroke-dasharray="${ci}" stroke-dashoffset="${o}" stroke-linecap="round" transform="rotate(-90 ${sz/2} ${sz/2})" style="transition:stroke-dashoffset 0.5s ease"/>${ch}</svg>`}
 function sparkles(){const co=['#c084fc','#22d3ee','#f472b6','#facc15','#a78bfa','#34d399'];for(let i=0;i<30;i++){const el=document.createElement('div');el.className='sparkle';const sz=4+Math.random()*8;el.style.cssText=`left:${Math.random()*100}%;top:-10px;width:${sz}px;height:${sz}px;background:${co[Math.floor(Math.random()*co.length)]};animation:sparkle-fall ${1+Math.random()*1.5}s ease-in ${Math.random()*0.5}s forwards`;document.body.appendChild(el);setTimeout(()=>el.remove(),3000)}}
 
-// === PHOTOS ===
+// === PHOTOS (Firebase Storage) ===
 function openPhotoPicker(did){S.photoTargetDesignId=did;document.getElementById('photo-input').click()}
-function handlePhotoSelected(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=function(e){const img=new Image();img.onload=function(){const c=document.createElement('canvas');const mx=800;let w=img.width,h=img.height;if(w>mx||h>mx){if(w>h){h=Math.round(h*mx/w);w=mx}else{w=Math.round(w*mx/h);h=mx}}c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);const k=selKit();if(!k||!S.photoTargetDesignId)return;const ds=k.designs.map(d=>d.id===S.photoTargetDesignId?{...d,photo:c.toDataURL('image/jpeg',0.7)}:d);fbUp(k.id,{designs:ds});S.photoTargetDesignId=null;showToast('Photo added!')};img.src=e.target.result};r.readAsDataURL(f);inp.value=''}
-function removePhoto(kid,did){const k=S.kits.find(x=>x.id===kid);if(!k)return;fbUp(kid,{designs:k.designs.map(d=>d.id===did?{...d,photo:''}:d)});S.lightboxPhoto=null;showToast('Photo removed');render()}
+function handlePhotoSelected(inp){
+  const f=inp.files[0];if(!f)return;
+  const k=selKit();if(!k||!S.photoTargetDesignId)return;
+  const kid=k.id,did=S.photoTargetDesignId;
+  S.photoTargetDesignId=null;
+  showToast('Uploading...');
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const canvas=document.createElement('canvas');
+      const mx=1200;let w=img.width,h=img.height;
+      if(w>mx||h>mx){if(w>h){h=Math.round(h*mx/w);w=mx}else{w=Math.round(w*mx/h);h=mx}}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      canvas.toBlob(async function(blob){
+        try{
+          const ref=storage.ref('photos/'+kid+'/'+did+'.jpg');
+          await ref.put(blob);
+          const url=await ref.getDownloadURL();
+          // Only update this one design's photo field
+          const kit=S.kits.find(x=>x.id===kid);if(!kit)return;
+          const ds=kit.designs.map(d=>d.id===did?{...d,photo:url}:d);
+          await fbUp(kid,{designs:ds});
+          showToast('Photo added!');
+        }catch(e){console.error('Upload failed:',e);showToast('Upload failed — try again')}
+      },'image/jpeg',0.8);
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(f);
+  inp.value='';
+}
+function removePhoto(kid,did){
+  const k=S.kits.find(x=>x.id===kid);if(!k)return;
+  // Delete from storage (ignore errors if file doesn't exist)
+  storage.ref('photos/'+kid+'/'+did+'.jpg').delete().catch(()=>{});
+  fbUp(kid,{designs:k.designs.map(d=>d.id===did?{...d,photo:''}:d)});
+  S.lightboxPhoto=null;showToast('Photo removed');render();
+}
 
 // === SPINNER ===
 let spinInt=null;
@@ -186,7 +225,7 @@ function render(){
 // === HOME ===
 function rHome(){
   const st=overall(),fk=filtered();
-  let h=`<div class="screen" style="padding-bottom:80px"><div style="padding:24px 20px 20px;background:linear-gradient(180deg,rgba(124,58,237,0.06),transparent)"><h1 style="font-family:var(--fd);font-size:26px;font-weight:700;background:linear-gradient(90deg,var(--purple),var(--cyan),var(--purple));background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gem-shimmer 4s linear infinite;margin-bottom:4px">◆ Paint Gem Tracker</h1><p style="color:var(--text-dimmer);font-size:14px">${st.tk===0?'Add your first kit!':st.tk+' kits · '+st.cd+' of '+st.td+' designs done'}</p></div>`;
+  let h=`<div class="screen" style="padding-bottom:80px"><div style="padding:24px 20px 20px;background:linear-gradient(180deg,rgba(124,58,237,0.06),transparent)"><h1 style="font-family:var(--fd);font-size:26px;font-weight:700;background:linear-gradient(90deg,var(--purple),var(--cyan),var(--purple));background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gem-shimmer 4s linear infinite;margin-bottom:4px">◆ Paint Gem Tracker <span style="font-size:12px;background:var(--red);color:#fff;padding:2px 8px;border-radius:6px;font-family:var(--fb);vertical-align:middle">TEST</span></h1><p style="color:var(--text-dimmer);font-size:14px">${st.tk===0?'Add your first kit!':st.tk+' kits · '+st.cd+' of '+st.td+' designs done'}</p></div>`;
   if(st.tk>0)h+=`<div style="padding:0 20px 16px;display:flex;gap:8px"><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--green)">${st.ck}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">Done</div></div><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--purple-light)">${st.ip}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">Active</div></div><div class="stat-card"><div style="font-size:22px;font-weight:700;color:var(--text-dimmer)">${st.ns}</div><div style="font-size:11px;color:var(--text-dim);font-weight:600">New</div></div></div>`;
   if(st.tk>0)h+=`<div style="padding:0 20px 12px"><input class="input" id="search-input" value="${E(S.search)}" oninput="S.search=this.value;updKitList()" placeholder="Search kits..." style="margin-bottom:10px"><div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">${[['all','All'],['ip','Started'],['ns','Not Started'],['done','Done']].map(([f,l])=>`<button class="pill ${S.filter===f?'active':''}" onclick="S.filter='${f}';render()">${l}</button>`).join('')}</div></div>`;
   h+=`<div id="kit-list-container" style="padding:0 20px">${renderKitItems()}</div>`;
